@@ -11,7 +11,8 @@ import {
   getUserDays,
   UserConfig,
   DailyRecord,
-  DEFAULT_CONFIG
+  DEFAULT_CONFIG,
+  signOut
 } from "./lib/firebase";
 
 // Components
@@ -36,6 +37,29 @@ export default function App() {
 
   // Monitor Google Authentication session
   useEffect(() => {
+    // Check if we have a local session active first to allow offline local storage mode
+    const localUserJson = localStorage.getItem("local_user_session");
+    if (localUserJson) {
+      try {
+        const user = JSON.parse(localUserJson);
+        setCurrentUser(user);
+        
+        // Fetch local offline configuration and logged status
+        getOrCreateUserConfig(user.uid).then((config) => {
+          setUserConfig(config);
+        });
+        
+        getUserDays(user.uid).then((days) => {
+          setDaysData(days);
+        });
+        
+        setAppLoading(false);
+        return;
+      } catch (e) {
+        console.error("Failed to parse local user session", e);
+      }
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setAppLoading(true);
       setNetworkError(false);
@@ -92,7 +116,13 @@ export default function App() {
   };
 
   // Safe logout handler
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    localStorage.removeItem("local_user_session");
+    try {
+      await signOut(auth);
+    } catch (e) {
+      console.warn("Firebase signout warning ignored during local logout", e);
+    }
     setCurrentUser(null);
     setUserConfig(null);
     setDaysData({});

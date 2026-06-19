@@ -1,16 +1,58 @@
-import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
+import { initializeApp, getApp, getApps } from "firebase/app";
+import { 
+  getAuth, 
+  GoogleAuthProvider, 
+  signInWithPopup, 
+  signOut,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile
+} from "firebase/auth";
 import { getFirestore, doc, getDoc, setDoc, collection, getDocs, getDocFromServer } from "firebase/firestore";
-import firebaseConfig from "../../firebase-applet-config.json";
+import defaultFirebaseConfig from "../../firebase-applet-config.json";
 
-// Initialize Firebase App
-const app = initializeApp(firebaseConfig);
+// Helper function to load Firebase Configuration (custom from localStorage or default)
+export function getFirebaseConfig() {
+  try {
+    const custom = localStorage.getItem("custom_firebase_config");
+    if (custom) {
+      return JSON.parse(custom);
+    }
+  } catch (e) {
+    console.warn("Failed to parse custom firebase config from localStorage", e);
+  }
+  return defaultFirebaseConfig;
+}
 
-// Initialize Auth & Firestore with specific DB id from config
+const activeConfig = getFirebaseConfig();
+
+// Initialize or retrieve the active Firebase App instance safely
+function getActiveApp() {
+  if (getApps().length > 0) {
+    return getApp();
+  }
+  return initializeApp(activeConfig);
+}
+
+const app = getActiveApp();
+
+// Initialize Auth & Firestore
 export const auth = getAuth(app);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 
-export { GoogleAuthProvider, signInWithPopup, signOut };
+// Initialize database (using custom or default database ID)
+export const db = getFirestore(
+  app, 
+  activeConfig.firestoreDatabaseId || undefined
+);
+
+export { 
+  GoogleAuthProvider, 
+  signInWithPopup, 
+  signOut,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile
+};
 
 // Connection validation
 export async function testFirebaseConnection(): Promise<boolean> {
@@ -121,6 +163,19 @@ export const DEFAULT_CONFIG: UserConfig = {
  * Fetch user configuration or return defaults if not exists to ensure seamless startup.
  */
 export async function getOrCreateUserConfig(userId: string): Promise<UserConfig> {
+  if (userId === "local_user") {
+    try {
+      const local = localStorage.getItem("local_user_config");
+      if (local) {
+        return JSON.parse(local);
+      }
+    } catch (e) {
+      console.error("Failed to parse local config", e);
+    }
+    localStorage.setItem("local_user_config", JSON.stringify(DEFAULT_CONFIG));
+    return DEFAULT_CONFIG;
+  }
+
   const configPath = `users/${userId}`;
   try {
     const configDocRef = doc(db, "users", userId);
@@ -150,6 +205,18 @@ export async function getOrCreateUserConfig(userId: string): Promise<UserConfig>
  * Save / update the user configuration
  */
 export async function saveUserConfig(userId: string, config: Partial<UserConfig>): Promise<void> {
+  if (userId === "local_user") {
+    try {
+      const currentRaw = localStorage.getItem("local_user_config");
+      const current = currentRaw ? JSON.parse(currentRaw) : DEFAULT_CONFIG;
+      const updated = { ...current, ...config, updatedAt: new Date().toISOString() };
+      localStorage.setItem("local_user_config", JSON.stringify(updated));
+    } catch (e) {
+      console.error("Failed to save local config", e);
+    }
+    return;
+  }
+
   const configPath = `users/${userId}`;
   try {
     const configDocRef = doc(db, "users", userId);
@@ -166,6 +233,17 @@ export async function saveUserConfig(userId: string, config: Partial<UserConfig>
  * Fetch a user's daily record for a specific date
  */
 export async function getDailyRecord(userId: string, dateId: string): Promise<DailyRecord> {
+  if (userId === "local_user") {
+    try {
+      const localDaysRaw = localStorage.getItem("local_days_data");
+      const localDays = localDaysRaw ? JSON.parse(localDaysRaw) : {};
+      return localDays[dateId] || { hours: 0, completedHabits: [] };
+    } catch (e) {
+      console.error("Failed to get local day record", e);
+      return { hours: 0, completedHabits: [] };
+    }
+  }
+
   const path = `users/${userId}/days/${dateId}`;
   try {
     const docRef = doc(db, "users", userId, "days", dateId);
@@ -189,6 +267,16 @@ export async function getDailyRecord(userId: string, dateId: string): Promise<Da
  * Fetch all logged days for a user to map locally
  */
 export async function getUserDays(userId: string): Promise<Record<string, DailyRecord>> {
+  if (userId === "local_user") {
+    try {
+      const localDaysRaw = localStorage.getItem("local_days_data");
+      return localDaysRaw ? JSON.parse(localDaysRaw) : {};
+    } catch (e) {
+      console.error("Failed to get local user days", e);
+      return {};
+    }
+  }
+
   const path = `users/${userId}/days`;
   try {
     const collRef = collection(db, "users", userId, "days");
@@ -212,6 +300,22 @@ export async function getUserDays(userId: string): Promise<Record<string, DailyR
  * Save/overwrite a daily record
  */
 export async function saveDailyRecord(userId: string, dateId: string, record: DailyRecord): Promise<void> {
+  if (userId === "local_user") {
+    try {
+      const localDaysRaw = localStorage.getItem("local_days_data");
+      const localDays = localDaysRaw ? JSON.parse(localDaysRaw) : {};
+      localDays[dateId] = {
+        hours: Number(record.hours),
+        completedHabits: record.completedHabits,
+        updatedAt: new Date().toISOString()
+      };
+      localStorage.setItem("local_days_data", JSON.stringify(localDays));
+    } catch (e) {
+      console.error("Failed to save local daily record", e);
+    }
+    return;
+  }
+
   const path = `users/${userId}/days/${dateId}`;
   try {
     const docRef = doc(db, "users", userId, "days", dateId);
