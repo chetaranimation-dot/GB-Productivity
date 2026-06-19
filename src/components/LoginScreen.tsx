@@ -114,14 +114,15 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         initial={{ opacity: 0, scale: 0.98, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
-        className="w-full max-w-2xl bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden relative z-10 flex flex-col md:flex-row"
-        id="login-card-dual"
+        className="w-full max-w-md bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden relative z-10"
+        id="login-card-clean"
       >
-        {/* Left Side: Login & Configuration */}
-        <div className="flex-1 p-8 flex flex-col justify-between border-b md:border-b-0 md:border-r border-slate-100">
+        <div className="h-2 bg-gradient-to-r from-brand-teal via-brand-ice to-brand-wine" />
+
+        <div className="p-8 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-6">
-              {/* App identity and small badge */}
+              {/* identity and small settings toggler */}
               <div className="w-12 h-12 bg-brand-teal/10 rounded-2xl flex items-center justify-center text-brand-teal">
                 <Database className="w-6 h-6 animate-pulse" />
               </div>
@@ -139,7 +140,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
             </div>
 
             <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight mb-1">
-              GP - Productivity
+              GB - Productivity
             </h1>
             <span className="text-[9px] text-brand-wine font-extrabold tracking-widest uppercase mb-4 block">
               WORKSPACE INDONESIA
@@ -167,29 +168,9 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                 <span className="font-semibold">{configSuccessMessage}</span>
               </div>
             )}
-
-            {/* Config Status Info box */}
-            <div className="mb-6 p-3.5 bg-slate-50 rounded-2xl border border-slate-100 text-[11px] text-slate-600 space-y-1">
-              <div className="flex items-center gap-1.5 font-bold text-slate-700">
-                <Info className="w-3.5 h-3.5 text-slate-400" />
-                Sumber Database Aktif:
-              </div>
-              <div className="flex items-center justify-between pt-0.5">
-                <span className="font-mono text-[9px] text-slate-400 truncate">
-                  Project: {getFirebaseConfig().projectId || "Belum dikonfigurasi"}
-                </span>
-                <span className={`px-1.5 py-0.5 rounded-[6px] text-[8px] font-bold font-mono ${
-                  hasCustomConfig 
-                    ? "bg-brand-teal/10 text-brand-teal" 
-                    : "bg-slate-200/60 text-slate-500"
-                }`}>
-                  {hasCustomConfig ? "Custom milik Anda" : "Default Applet"}
-                </span>
-              </div>
-            </div>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-3 pt-2">
             {/* Direct Firebase Authorized Google Sign In */}
             <button
               onClick={handleGoogleSignIn}
@@ -208,99 +189,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                 </>
               )}
             </button>
-
-            {/* Button to open custom Firebase credential setup */}
-            <button
-              onClick={() => setShowConfigModal(true)}
-              className="w-full py-3 px-4 border border-slate-200 hover:bg-slate-50 text-slate-600 font-semibold rounded-2xl text-xs transition duration-150 cursor-pointer flex items-center justify-center gap-2"
-              id="open-guide-btn"
-            >
-              <Settings className="w-3.5 h-3.5" />
-              Sesuaikan Kredensial Firebase Saya
-            </button>
-          </div>
-        </div>
-
-        {/* Right Side: Step-by-Step Connection Instructions */}
-        <div className="flex-1 p-8 bg-slate-50/50 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center gap-2 text-brand-teal mb-4">
-              <BookOpen className="w-5 h-5 shrink-0" />
-              <h3 className="text-sm font-bold tracking-tight">Langkah Otorisasi Firebase Anda</h3>
-            </div>
-
-            <p className="text-[11px] text-slate-500 mb-5 leading-relaxed">
-              Karena Anda bukan pemilik project Firebase default di AI Studio ini, Anda dapat menggunakan database Firebase & Google OAuth milik Anda secara mandiri. Berikut adalah langkah super mudahnya:
-            </p>
-
-            <div className="space-y-4">
-              {/* Step 1 */}
-              <div className="flex gap-3">
-                <div className="w-5 h-5 rounded-full bg-brand-teal/15 text-brand-teal text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
-                  1
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-slate-700 leading-normal flex items-center gap-1">
-                    Buat Project Firebase Anda
-                    <a href="https://console.firebase.google.com" target="_blank" rel="noopener noreferrer" className="inline text-brand-teal hover:underline" title="Buka Firebase Console">
-                      <ExternalLink className="w-3 h-3 inline mb-0.5" />
-                    </a>
-                  </h4>
-                  <p className="text-[11px] text-slate-500 leading-relaxed pt-0.5">
-                    Kunjungi Firebase Console, buat project baru, klik ikon gigi roda di pojok kiri atas, masuk ke <strong>Project settings</strong>, dan buat aplikasi Web baru untuk mendapatkan objek konfigurasinya.
-                  </p>
-                </div>
-              </div>
-
-              {/* Step 2 */}
-              <div className="flex gap-3">
-                <div className="w-5 h-5 rounded-full bg-brand-teal/15 text-brand-teal text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
-                  2
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-slate-700 leading-normal">Aktifkan Google Auth</h4>
-                  <p className="text-[11px] text-slate-500 leading-relaxed pt-0.5">
-                    Masuk ke menu <strong>Build &gt; Authentication &gt; Sign-in method</strong>, lalu aktifkan penyedia masuk <strong>Google</strong>. Simpan setelan.
-                  </p>
-                </div>
-              </div>
-
-              {/* Step 3 */}
-              <div className="flex gap-3">
-                <div className="w-5 h-5 rounded-full bg-brand-wine/15 text-brand-wine text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
-                  3
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-slate-700 leading-normal">Otorisasikan Domain Pratinjau</h4>
-                  <p className="text-[11px] text-slate-500 leading-relaxed pt-0.5">
-                    Masuk ke tab <strong>Settings</strong> di Authentication, cari bagian <strong>Authorized domains</strong>, lalu klik "Add domain" untuk menambahkan domain pratinjau di bawah ini agar lolos pemeriksaan keamanan:
-                  </p>
-                  <div className="mt-1.5 p-2 bg-white rounded-lg border border-slate-200 space-y-1 font-mono text-[9px] text-slate-600 select-all">
-                    <span className="block break-all">ais-dev-toulsesnsyciqckr6zcalg-1020233461781.asia-southeast1.run.app</span>
-                    <span className="block break-all">ais-pre-toulsesnsyciqckr6zcalg-1020233461781.asia-southeast1.run.app</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Step 4 */}
-              <div className="flex gap-3">
-                <div className="w-5 h-5 rounded-full bg-brand-teal/15 text-brand-teal text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
-                  4
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-slate-700 leading-normal">Konfigurasikan Cloud Firestore</h4>
-                  <p className="text-[11px] text-slate-500 leading-relaxed pt-0.5">
-                    Masuk ke menu <strong>Firestore Database</strong>, buat database baru, dan pastikan rules keamanan memperbolehkan baca & tulis bagi user terautentikasi.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-6 border-t border-slate-200/60 mt-4 text-center">
-            <span className="text-[10px] text-slate-400 font-medium">
-              Selesai mengatur? Pastikan menyimpan konfigurasi di menu kiri.
-            </span>
           </div>
         </div>
       </motion.div>
