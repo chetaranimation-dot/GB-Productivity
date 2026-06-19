@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApp, getApps } from "firebase/app";
 import { 
   getAuth, 
   GoogleAuthProvider, 
@@ -12,44 +12,60 @@ import {
   onAuthStateChanged,
   User
 } from "firebase/auth";
-import firebaseConfig from "../../firebase-applet-config.json";
+import { 
+  getFirestore, 
+  doc, 
+  getDoc, 
+  setDoc, 
+  collection, 
+  getDocs 
+} from "firebase/firestore";
+import defaultFirebaseConfig from "../../firebase-applet-config.json";
 
-// Initialize Firebase App
-const app = initializeApp(firebaseConfig);
+// Helper function to load Firebase Configuration (custom from localStorage or default)
+export function getFirebaseConfig() {
+  try {
+    const custom = localStorage.getItem("custom_firebase_config");
+    if (custom) {
+      return JSON.parse(custom);
+    }
+  } catch (e) {
+    console.warn("Failed to parse custom firebase config from localStorage", e);
+  }
+  return defaultFirebaseConfig;
+}
+
+const activeConfig = getFirebaseConfig();
+
+// Initialize or retrieve the active Firebase App instance safely
+function getActiveApp() {
+  if (getApps().length > 0) {
+    return getApp();
+  }
+  return initializeApp(activeConfig);
+}
+
+const app = getActiveApp();
+
+// Initialize Auth
 export const auth = getAuth(app);
 
-// Keep access token and Drive file stats in memory as mandated (no localStorage save of token)
-let cachedAccessToken: string | null = null;
-let cachedDriveFileId: string | null = null;
-let isSigningIn = false;
+// Initialize Firestore
+export const db = getFirestore(
+  app, 
+  activeConfig.firestoreDatabaseId || undefined
+);
 
-// Sync status definition
-export type SyncStatus = "idle" | "syncing" | "synced" | "error";
-let currentSyncStatus: SyncStatus = "idle";
-let syncStatusListeners: ((status: SyncStatus) => void)[] = [];
+export { GoogleAuthProvider, signInWithPopup, signOut };
 
-// Allow UI to subscribe to Google Drive sync states
-export function getSyncStatus(): SyncStatus {
-  return currentSyncStatus;
-}
-
-export function subscribeToSyncStatus(listener: (status: SyncStatus) => void) {
-  syncStatusListeners.push(listener);
-  listener(currentSyncStatus);
-  return () => {
-    syncStatusListeners = syncStatusListeners.filter(l => l !== listener);
-  };
-}
-
-function updateSyncStatus(status: SyncStatus) {
-  currentSyncStatus = status;
-  syncStatusListeners.forEach(listener => {
-    try {
-      listener(status);
-    } catch (e) {
-      console.error(e);
-    }
-  });
+// Connection validation
+export async function testFirebaseConnection(): Promise<boolean> {
+  try {
+    const config = getFirebaseConfig();
+    return !!config.apiKey && !!config.projectId;
+  } catch {
+    return false;
+  }
 }
 
 // Data models
@@ -72,7 +88,7 @@ export interface DailyRecord {
   completedHabits: string[]; // Stores strings like "habitId::itemName"
 }
 
-// Default settings
+// Default configurations
 export const DEFAULT_CONFIG: UserConfig = {
   theme: "light",
   thresholdVeryBad: 2,
@@ -92,289 +108,106 @@ export const DEFAULT_CONFIG: UserConfig = {
   ]
 };
 
-// Local storage backup definitions to survive page refresh
-let cachedUserData: {
-  userConfig: UserConfig;
-  daysData: Record<string, DailyRecord>;
-} = {
-  userConfig: DEFAULT_CONFIG,
-  daysData: {}
-};
+// --- Firestore Database operations ---
 
-// Initialize cached memory with local backup if it exists
-try {
-  const backupConfig = localStorage.getItem("gd_backup_config");
-  const backupDays = localStorage.getItem("gd_backup_days");
-  if (backupConfig) cachedUserData.userConfig = JSON.parse(backupConfig);
-  if (backupDays) cachedUserData.daysData = JSON.parse(backupDays);
-} catch (e) {
-  console.warn("Could not load local session backups from localStorage", e);
-}
-
-// Save backups to local storage to make the UI snappy and resilient
-function saveLocalBackups() {
+export async function getOrCreateUserConfig(userId: string): Promise<UserConfig> {
   try {
-    localStorage.setItem("gd_backup_config", JSON.stringify(cachedUserData.userConfig));
-    localStorage.setItem("gd_backup_days", JSON.stringify(cachedUserData.daysData));
-  } catch (e) {
-    console.error("Failed to write offline local backup data:", e);
-  }
-}
-
-// --- Google Drive REST API requests ---
-
-async function findDriveFile(accessToken: string): Promise<string | null> {
-  const url = `https://www.googleapis.com/drive/v3/files?q=name='gd_productivity_data.json'+and+trashed=false&fields=files(id)`;
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${accessToken}` }
-  });
-  if (!res.ok) {
-    throw new Error(`Failed to list files: ${res.statusText}`);
-  }
-  const data = await res.json();
-  if (data.files && data.files.length > 0) {
-    return data.files[0].id;
-  }
-  return null;
-}
-
-async function createDriveFile(accessToken: string, fileContent: any): Promise<string> {
-  const metadata = {
-    name: "gd_productivity_data.json",
-    mimeType: "application/json"
-  };
-  
-  const boundary = "314159265358979323846";
-  const delimiter = `\r\n--${boundary}\r\n`;
-  const closeDelimiter = `\r\n--${boundary}--`;
-  
-  const body = 
-    delimiter +
-    'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
-    JSON.stringify(metadata) +
-    delimiter +
-    'Content-Type: application/json\r\n\r\n' +
-    JSON.stringify(fileContent) +
-    closeDelimiter;
-
-  const url = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': `multipart/related; boundary=${boundary}`
-    },
-    body: body
-  });
-  
-  if (!res.ok) {
-    throw new Error(`Failed to create Google Drive file: ${res.statusText}`);
-  }
-  const data = await res.json();
-  return data.id;
-}
-
-async function readDriveFile(accessToken: string, fileId: string): Promise<any> {
-  const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${accessToken}` }
-  });
-  if (!res.ok) {
-    throw new Error(`Failed to read productivity file: ${res.statusText}`);
-  }
-  return await res.json();
-}
-
-async function updateDriveFile(accessToken: string, fileId: string, fileContent: any): Promise<void> {
-  const url = `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`;
-  const res = await fetch(url, {
-    method: 'PATCH',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(fileContent)
-  });
-  if (!res.ok) {
-    throw new Error(`Failed to update Google Drive file: ${res.statusText}`);
-  }
-}
-
-// Queue writes to Google Drive with debounce/throttle protection
-let activeSyncPromise: Promise<void> | null = null;
-let syncTimeout: any = null;
-
-export function triggerSyncToDrive() {
-  saveLocalBackups();
-  
-  if (!cachedAccessToken || !cachedDriveFileId) {
-    console.warn("No active Google Drive session loaded. Saved data offline on local cache.");
-    updateSyncStatus("idle");
-    return;
-  }
-  
-  if (syncTimeout) {
-    clearTimeout(syncTimeout);
-  }
-  
-  updateSyncStatus("syncing");
-  
-  syncTimeout = setTimeout(() => {
-    const runSync = async () => {
-      try {
-        await updateDriveFile(cachedAccessToken!, cachedDriveFileId!, cachedUserData);
-        updateSyncStatus("synced");
-      } catch (err) {
-        console.error("Google Drive sync failed:", err);
-        updateSyncStatus("error");
-      }
-    };
-    
-    if (activeSyncPromise) {
-      activeSyncPromise = activeSyncPromise.then(runSync);
+    const docRef = doc(db, "users", userId, "config", "main");
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      return { 
+        ...DEFAULT_CONFIG, 
+        ...docSnap.data() 
+      } as UserConfig;
     } else {
-      activeSyncPromise = runSync();
+      // Create with default values if non-existent
+      await setDoc(docRef, DEFAULT_CONFIG);
+      return DEFAULT_CONFIG;
     }
-  }, 1000);
+  } catch (error) {
+    console.warn("Failed to get config from Firestore, fallback to default", error);
+    return DEFAULT_CONFIG;
+  }
 }
 
-// --- Auth State Handler & Google Drive Loader ---
+export async function saveUserConfig(userId: string, config: Partial<UserConfig>): Promise<void> {
+  try {
+    const docRef = doc(db, "users", userId, "config", "main");
+    await setDoc(docRef, config, { merge: true });
+  } catch (error) {
+    console.error("Failed to save config to Firestore", error);
+    throw error;
+  }
+}
+
+export async function getDailyRecord(userId: string, dateId: string): Promise<DailyRecord> {
+  try {
+    const docRef = doc(db, "users", userId, "days", dateId);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      return {
+        hours: Number(data.hours || 0),
+        completedHabits: data.completedHabits || []
+      } as DailyRecord;
+    }
+  } catch (error) {
+    console.warn(`Failed to fetch daily record for date ${dateId}`, error);
+  }
+  return { hours: 0, completedHabits: [] };
+}
+
+export async function getUserDays(userId: string): Promise<Record<string, DailyRecord>> {
+  const result: Record<string, DailyRecord> = {};
+  try {
+    const colRef = collection(db, "users", userId, "days");
+    const querySnapshot = await getDocs(colRef);
+    querySnapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+      result[docSnap.id] = {
+        hours: Number(data.hours || 0),
+        completedHabits: data.completedHabits || []
+      };
+    });
+  } catch (error) {
+    console.warn("Failed to retrieve user days history", error);
+  }
+  return result;
+}
+
+export async function saveDailyRecord(userId: string, dateId: string, record: DailyRecord): Promise<void> {
+  try {
+    const docRef = doc(db, "users", userId, "days", dateId);
+    await setDoc(docRef, {
+      hours: Number(record.hours),
+      completedHabits: record.completedHabits
+    });
+  } catch (error) {
+    console.error(`Failed to preserve daily record for date ${dateId}`, error);
+    throw error;
+  }
+}
 
 export const initAuth = (
-  onAuthSuccess?: (user: User, token: string) => void,
+  onAuthSuccess?: (user: User) => void,
   onAuthFailure?: () => void
 ) => {
-  return onAuthStateChanged(auth, async (user: User | null) => {
+  return onAuthStateChanged(auth, (user: User | null) => {
     if (user) {
-      if (cachedAccessToken) {
-        if (onAuthSuccess) onAuthSuccess(user, cachedAccessToken);
-      } else if (!isSigningIn) {
-        cachedAccessToken = null;
-        cachedDriveFileId = null;
-        if (onAuthFailure) onAuthFailure();
-      }
+      if (onAuthSuccess) onAuthSuccess(user);
     } else {
-      cachedAccessToken = null;
-      cachedDriveFileId = null;
       if (onAuthFailure) onAuthFailure();
     }
   });
 };
 
-// Sign in with Google Drive scopes
-export const googleSignIn = async (): Promise<{ user: User; accessToken: string } | null> => {
-  try {
-    isSigningIn = true;
-    updateSyncStatus("syncing");
-    
-    const provider = new GoogleAuthProvider();
-    provider.addScope("https://www.googleapis.com/auth/drive.file");
-    provider.setCustomParameters({ prompt: "select_account" });
-    
-    const result = await signInWithPopup(auth, provider);
-    const credential = GoogleAuthProvider.credentialFromResult(result);
-    if (!credential?.accessToken) {
-      throw new Error("Failed to get Google Access Token from authentication result");
-    }
-
-    cachedAccessToken = credential.accessToken;
-    
-    // Find or create the JSON data backup file on Drive
-    let fileId = await findDriveFile(cachedAccessToken);
-    if (fileId) {
-      try {
-        const cloudData = await readDriveFile(cachedAccessToken, fileId);
-        cachedUserData = {
-          userConfig: {
-            ...DEFAULT_CONFIG,
-            ...(cloudData.userConfig || {})
-          },
-          daysData: cloudData.daysData || {}
-        };
-        saveLocalBackups();
-      } catch (e) {
-        console.error("Cloud document parsing failed, fallback to local backup:", e);
-      }
-      cachedDriveFileId = fileId;
-    } else {
-      // Create new file
-      const newFileId = await createDriveFile(cachedAccessToken, cachedUserData);
-      cachedDriveFileId = newFileId;
-    }
-    
-    updateSyncStatus("synced");
-    
-    // Save a lightweight token sign-in indicator for app reloading states
-    const localUserSession = {
-      uid: result.user.uid,
-      displayName: result.user.displayName,
-      email: result.user.email,
-      photoURL: result.user.photoURL
-    };
-    localStorage.setItem("local_user_session", JSON.stringify(localUserSession));
-    
-    return { user: result.user, accessToken: cachedAccessToken };
-  } catch (error: any) {
-    console.error("Google Drive connection and initialization failed:", error);
-    updateSyncStatus("error");
-    throw error;
-  } finally {
-    isSigningIn = false;
-  }
+export const googleSignIn = async (): Promise<User | null> => {
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: "select_account" });
+  const result = await signInWithPopup(auth, provider);
+  return result.user;
 };
 
 export const logout = async () => {
-  try {
-    await signOut(auth);
-  } catch (e) {
-    console.warn("SignOut warning captured", e);
-  }
-  cachedAccessToken = null;
-  cachedDriveFileId = null;
-  cachedUserData = { userConfig: DEFAULT_CONFIG, daysData: {} };
-  
-  localStorage.removeItem("local_user_session");
-  localStorage.removeItem("gd_backup_config");
-  localStorage.removeItem("gd_backup_days");
-  
-  updateSyncStatus("idle");
+  await signOut(auth);
 };
-
-// --- Compatibility Getters and Setters matching your exact UI layout ---
-
-export async function getOrCreateUserConfig(userId: string): Promise<UserConfig> {
-  return cachedUserData.userConfig;
-}
-
-export async function saveUserConfig(userId: string, config: Partial<UserConfig>): Promise<void> {
-  cachedUserData.userConfig = {
-    ...cachedUserData.userConfig,
-    ...config
-  };
-  triggerSyncToDrive();
-}
-
-export async function getDailyRecord(userId: string, dateId: string): Promise<DailyRecord> {
-  return cachedUserData.daysData[dateId] || { hours: 0, completedHabits: [] };
-}
-
-export async function getUserDays(userId: string): Promise<Record<string, DailyRecord>> {
-  return cachedUserData.daysData;
-}
-
-export async function saveDailyRecord(userId: string, dateId: string, record: DailyRecord): Promise<void> {
-  cachedUserData.daysData = {
-    ...cachedUserData.daysData,
-    [dateId]: {
-      hours: Number(record.hours),
-      completedHabits: record.completedHabits
-    }
-  };
-  triggerSyncToDrive();
-}
-
-export async function testFirebaseConnection(): Promise<boolean> {
-  return true;
-}
-
-export { GoogleAuthProvider, signInWithPopup, signOut };

@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from "react";
-import { googleSignIn } from "../lib/firebase";
+import React, { useState, useEffect } from "react";
+import { googleSignIn, getFirebaseConfig } from "../lib/firebase";
 import { 
   ShieldCheck, 
   Sparkles, 
@@ -13,9 +13,16 @@ import {
   Database,
   Terminal,
   RefreshCw,
-  FolderLock
+  FolderLock,
+  Settings,
+  X,
+  Check,
+  ChevronRight,
+  Info,
+  ExternalLink,
+  BookOpen
 } from "lucide-react";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 
 interface LoginScreenProps {
   onLoginSuccess: (user: any) => void;
@@ -24,22 +31,35 @@ interface LoginScreenProps {
 export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showConfigModal, setShowConfigModal] = useState(false);
+  
+  // Custom configuration states
+  const [currentConfigText, setCurrentConfigText] = useState("");
+  const [hasCustomConfig, setHasCustomConfig] = useState(false);
+  const [configSuccessMessage, setConfigSuccessMessage] = useState<string | null>(null);
 
-  const handleDriveSignIn = async () => {
+  // Load current active config on mount
+  useEffect(() => {
+    const config = getFirebaseConfig();
+    setCurrentConfigText(JSON.stringify(config, null, 2));
+    setHasCustomConfig(!!localStorage.getItem("custom_firebase_config"));
+  }, []);
+
+  const handleGoogleSignIn = async () => {
     setLoading(true);
     setErrorMessage(null);
     try {
-      const result = await googleSignIn();
-      if (result?.user) {
-        onLoginSuccess(result.user);
+      const user = await googleSignIn();
+      if (user) {
+        onLoginSuccess(user);
       }
     } catch (error: any) {
-      console.error("Google Drive connection failure:", error);
+      console.error("Google Auth connection failure:", error);
       let desc = error.message || String(error);
       if (error.code === "auth/popup-blocked") {
-        desc = "Pop-up login diblokir oleh browser. Harap ijinkan pop-up untuk domain ini dan coba lagi.";
+        desc = "Pop-up login diblokir oleh browser. Harap ijinkan pop-up untuk situs ini dan coba lagi.";
       } else if (desc.includes("unauthorized-domain") || error.code === "auth/unauthorized-domain") {
-        desc = "Hubungan Firebase Auth domain belum diotorisasi. Hubungi administrator atau pastikan setelan sudah benar.";
+        desc = "Domain ini belum diotorisasi (unauthorized-domain) di Firebase Console Anda. Harap tambahkan domain pratinjau ini ke Authorized Domains di setelan Authentication Anda.";
       }
       setErrorMessage(desc);
     } finally {
@@ -47,118 +67,345 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     }
   };
 
+  // Safe parsing and validating of Firebase Config JSON
+  const handleSaveConfig = () => {
+    setErrorMessage(null);
+    setConfigSuccessMessage(null);
+    try {
+      const parsed = JSON.parse(currentConfigText);
+      
+      // Simple validation for critical keys
+      if (!parsed.apiKey || !parsed.projectId || !parsed.authDomain) {
+        throw new Error("Format tidak valid! Minimal harus berisi 'apiKey', 'authDomain', dan 'projectId'.");
+      }
+      
+      localStorage.setItem("custom_firebase_config", JSON.stringify(parsed, null, 2));
+      setHasCustomConfig(true);
+      setConfigSuccessMessage("Konfigurasi disimpan! Memuat ulang sistem...");
+      
+      // Reload page immediately to apply the new Firebase app instance
+      setTimeout(() => {
+        window.location.reload();
+      }, 1200);
+    } catch (err: any) {
+      setErrorMessage(err.message || "Gagal mengurai JSON. Pastikan format JSON sudah benar.");
+    }
+  };
+
+  // Clear custom config and fallback to system default
+  const handleResetConfig = () => {
+    localStorage.removeItem("custom_firebase_config");
+    setHasCustomConfig(false);
+    const defaultConfig = getFirebaseConfig();
+    setCurrentConfigText(JSON.stringify(defaultConfig, null, 2));
+    setConfigSuccessMessage("Kembali ke konfigurasi default. Memuat ulang...");
+    setTimeout(() => {
+      window.location.reload();
+    }, 1200);
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 selection:bg-brand-ice/50 selection:text-brand-wine">
-      {/* Decorative gradient blur elements */}
-      <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-brand-teal/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-72 h-72 bg-brand-wine/5 rounded-full blur-3xl pointer-events-none" />
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 sm:p-6 selection:bg-brand-ice/50 selection:text-brand-wine relative overflow-x-hidden">
+      {/* Soft background glow circles */}
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-brand-teal/5 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-brand-wine/5 rounded-full blur-3xl pointer-events-none" />
 
       <motion.div
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ opacity: 0, scale: 0.98, y: 15 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
-        className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden relative z-10"
-        id="login-card"
+        className="w-full max-w-2xl bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden relative z-10 flex flex-col md:flex-row"
+        id="login-card-dual"
       >
-        {/* Sleek brand gradient top bar */}
-        <div className="h-2 bg-gradient-to-r from-brand-teal via-brand-ice to-brand-wine" />
-
-        <div className="p-8 flex flex-col items-center">
-          {/* Main Google Drive / App logo */}
-          <div className="w-16 h-16 bg-brand-teal/10 rounded-2xl flex items-center justify-center text-brand-teal mb-6 relative">
-            <Database className="w-8 h-8" />
-            <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center text-white text-[9px] font-bold shadow-sm">
-              GD
-            </div>
-          </div>
-
-          <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight text-center mb-1">
-            GP - Productivity
-          </h1>
-          <span className="text-[10px] text-brand-teal font-extrabold tracking-widest uppercase mb-4">
-            Google Drive JSON Sync
-          </span>
-
-          <p className="text-xs text-slate-500 text-center max-w-sm mb-6 leading-relaxed">
-            Pencatat waktu produktif harian dan pelacak kebiasaan (habits) yang menyimpan seluruh datanya secara pribadi langsung di **Google Drive** Anda sendiri.
-          </p>
-
-          {/* Sync Features Overview */}
-          <div className="w-full space-y-3.5 mb-6 bg-slate-50/70 p-4 rounded-xl border border-slate-100/50">
-            <div className="flex items-start gap-3">
-              <div className="p-1 rounded bg-brand-teal/15 text-brand-teal mt-0.5">
-                <FolderLock className="w-4 h-4" />
+        {/* Left Side: Login & Configuration */}
+        <div className="flex-1 p-8 flex flex-col justify-between border-b md:border-b-0 md:border-r border-slate-100">
+          <div>
+            <div className="flex items-center justify-between mb-6">
+              {/* App identity and small badge */}
+              <div className="w-12 h-12 bg-brand-teal/10 rounded-2xl flex items-center justify-center text-brand-teal">
+                <Database className="w-6 h-6 animate-pulse" />
               </div>
-              <div>
-                <h4 className="text-xs font-bold text-slate-700">Penyimpanan Privat</h4>
-                <p className="text-[11px] text-slate-500 leading-relaxed">
-                  Data disimpan sebagai file terenkripsi <code className="bg-slate-250/20 px-1 rounded font-mono text-xs font-semibold">gd_productivity_data.json</code> di ruang privat Google Drive Anda.
-                </p>
-              </div>
+              <button
+                onClick={() => setShowConfigModal(true)}
+                className="p-2 hover:bg-slate-50 rounded-xl text-slate-400 hover:text-slate-600 transition duration-150 relative cursor-pointer"
+                title="Atur Firebase Sendiri"
+                id="open-config-btn"
+              >
+                <Settings className={`w-5 h-5 ${hasCustomConfig ? "text-brand-teal animate-spin-slow" : ""}`} />
+                {hasCustomConfig && (
+                  <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-brand-teal border-2 border-white rounded-full" />
+                )}
+              </button>
             </div>
 
-            <div className="flex items-start gap-3">
-              <div className="p-1 rounded bg-teal-100 text-teal-600 mt-0.5 animate-pulse">
-                <RefreshCw className="w-4 h-4" />
-              </div>
-              <div>
-                <h4 className="text-xs font-bold text-slate-700">Sinkronisasi Instan</h4>
-                <p className="text-[11px] text-slate-500 leading-relaxed">
-                  Setiap jam produktif, checklist kebiasaan, maupun target yang diubah akan disinkronisasikan ke awan di latar belakang.
-                </p>
-              </div>
-            </div>
+            <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight mb-1">
+              GP - Productivity
+            </h1>
+            <span className="text-[9px] text-brand-wine font-extrabold tracking-widest uppercase mb-4 block">
+              WORKSPACE INDONESIA
+            </span>
 
-            <div className="flex items-start gap-3">
-              <div className="p-1 rounded bg-indigo-50 text-indigo-500 mt-0.5">
-                <ShieldCheck className="w-4 h-4" />
-              </div>
-              <div>
-                <h4 className="text-xs font-bold text-slate-700">Bebas Hambatan Domain</h4>
-                <p className="text-[11px] text-slate-500 leading-relaxed">
-                  Solusi pintar mengatasi limitasi domain dan pemblokiran database saat diakses dari GitHub Pages atau server statis.
-                </p>
-              </div>
-            </div>
-          </div>
+            <p className="text-xs text-slate-500 mb-6 leading-relaxed">
+              Selamat datang kembali! Masuk aman menggunakan Google Sign-In untuk mengelola seluruh pencatatan jam produktif dan kebiasaan harian Anda.
+            </p>
 
-          {errorMessage && (
-            <div className="w-full mb-6 p-3.5 bg-rose-50 border border-rose-100 rounded-xl flex gap-2.5 text-rose-700 text-xs items-center leading-normal">
-              <Terminal className="w-4 h-4 shrink-0 text-rose-500" />
-              <span className="flex-1 font-mono text-[10px] break-all">{errorMessage}</span>
-            </div>
-          )}
-
-          {/* Official styled Google Sign In with Drive permissions button */}
-          <button
-            onClick={handleDriveSignIn}
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-3 bg-brand-teal hover:bg-brand-teal/90 text-white font-semibold py-3.5 px-4 rounded-xl transition duration-200 outline-none focus:ring-2 focus:ring-brand-teal/35 active:scale-[0.99] disabled:opacity-75 disabled:pointer-events-none text-xs shadow-sm cursor-pointer"
-            id="drive-signin-btn"
-          >
-            {loading ? (
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <>
-                <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-                  <path
-                    fill="currentColor"
-                    d="M12.24 10.285V13.4h6.887c-.275 1.565-1.88 4.604-6.887 4.604-4.33 0-7.859-3.578-7.859-8s3.53-8 7.859-8c2.46 0 4.105 1.025 5.047 1.926l2.427-2.334C17.955 2.192 15.34 1 12.24 1 6.133 1 1.134 6 1.134 12s4.99 11 11.106 11c6.378 0 10.608-4.483 10.608-10.79 0-.727-.08-1.281-.176-1.925H12.24z"
-                  />
-                </svg>
-                <span>Masuk & Sinkronkan ke Google Drive</span>
-              </>
+            {/* Error alerts */}
+            {errorMessage && (
+              <div className="mb-6 p-4 bg-rose-50 border border-rose-100 rounded-2xl flex gap-3 text-rose-700 text-xs items-start leading-normal">
+                <Terminal className="w-4 h-4 shrink-0 text-rose-500 mt-0.5" />
+                <div className="flex-1">
+                  <span className="font-bold block mb-1">Terjadi Masalah Otorisasi / Koneksi:</span>
+                  <span className="font-mono text-[10px] break-all block">{errorMessage}</span>
+                </div>
+              </div>
             )}
-          </button>
 
-          <div className="w-full text-center mt-6">
-            <span className="text-[10px] text-slate-400 font-mono flex items-center justify-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 inline" />
-              Sertifikat Keamanan Workspace Terverifikasi
+            {/* Success message */}
+            {configSuccessMessage && (
+              <div className="mb-6 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex gap-3 text-emerald-700 text-xs items-center leading-normal">
+                <Check className="w-4 h-4 shrink-0 text-emerald-500" />
+                <span className="font-semibold">{configSuccessMessage}</span>
+              </div>
+            )}
+
+            {/* Config Status Info box */}
+            <div className="mb-6 p-3.5 bg-slate-50 rounded-2xl border border-slate-100 text-[11px] text-slate-600 space-y-1">
+              <div className="flex items-center gap-1.5 font-bold text-slate-700">
+                <Info className="w-3.5 h-3.5 text-slate-400" />
+                Sumber Database Aktif:
+              </div>
+              <div className="flex items-center justify-between pt-0.5">
+                <span className="font-mono text-[9px] text-slate-400 truncate">
+                  Project: {getFirebaseConfig().projectId || "Belum dikonfigurasi"}
+                </span>
+                <span className={`px-1.5 py-0.5 rounded-[6px] text-[8px] font-bold font-mono ${
+                  hasCustomConfig 
+                    ? "bg-brand-teal/10 text-brand-teal" 
+                    : "bg-slate-200/60 text-slate-500"
+                }`}>
+                  {hasCustomConfig ? "Custom milik Anda" : "Default Applet"}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {/* Direct Firebase Authorized Google Sign In */}
+            <button
+              onClick={handleGoogleSignIn}
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-3 bg-brand-teal hover:bg-brand-teal/90 text-white font-semibold py-3.5 px-4 rounded-2xl transition duration-200 outline-none focus:ring-2 focus:ring-brand-teal/35 active:scale-[0.99] disabled:opacity-75 disabled:pointer-events-none text-xs shadow-sm cursor-pointer"
+              id="google-signin-btn"
+            >
+              {loading ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>
+                  <svg className="w-4 h-4 shrink-0 fill-current" viewBox="0 0 24 24">
+                    <path d="M12.24 10.285V13.4h6.887c-.275 1.565-1.88 4.604-6.887 4.604-4.33 0-7.859-3.578-7.859-8s3.53-8 7.859-8c2.46 0 4.105 1.025 5.047 1.926l2.427-2.334C17.955 2.192 15.34 1 12.24 1 6.133 1 1.134 6 1.134 12s4.99 11 11.106 11c6.378 0 10.608-4.483 10.608-10.79 0-.727-.08-1.281-.176-1.925H12.24z"/>
+                  </svg>
+                  <span>Masuk dengan Akun Google</span>
+                </>
+              )}
+            </button>
+
+            {/* Button to open custom Firebase credential setup */}
+            <button
+              onClick={() => setShowConfigModal(true)}
+              className="w-full py-3 px-4 border border-slate-200 hover:bg-slate-50 text-slate-600 font-semibold rounded-2xl text-xs transition duration-150 cursor-pointer flex items-center justify-center gap-2"
+              id="open-guide-btn"
+            >
+              <Settings className="w-3.5 h-3.5" />
+              Sesuaikan Kredensial Firebase Saya
+            </button>
+          </div>
+        </div>
+
+        {/* Right Side: Step-by-Step Connection Instructions */}
+        <div className="flex-1 p-8 bg-slate-50/50 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-brand-teal mb-4">
+              <BookOpen className="w-5 h-5 shrink-0" />
+              <h3 className="text-sm font-bold tracking-tight">Langkah Otorisasi Firebase Anda</h3>
+            </div>
+
+            <p className="text-[11px] text-slate-500 mb-5 leading-relaxed">
+              Karena Anda bukan pemilik project Firebase default di AI Studio ini, Anda dapat menggunakan database Firebase & Google OAuth milik Anda secara mandiri. Berikut adalah langkah super mudahnya:
+            </p>
+
+            <div className="space-y-4">
+              {/* Step 1 */}
+              <div className="flex gap-3">
+                <div className="w-5 h-5 rounded-full bg-brand-teal/15 text-brand-teal text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                  1
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-slate-700 leading-normal flex items-center gap-1">
+                    Buat Project Firebase Anda
+                    <a href="https://console.firebase.google.com" target="_blank" rel="noopener noreferrer" className="inline text-brand-teal hover:underline" title="Buka Firebase Console">
+                      <ExternalLink className="w-3 h-3 inline mb-0.5" />
+                    </a>
+                  </h4>
+                  <p className="text-[11px] text-slate-500 leading-relaxed pt-0.5">
+                    Kunjungi Firebase Console, buat project baru, klik ikon gigi roda di pojok kiri atas, masuk ke <strong>Project settings</strong>, dan buat aplikasi Web baru untuk mendapatkan objek konfigurasinya.
+                  </p>
+                </div>
+              </div>
+
+              {/* Step 2 */}
+              <div className="flex gap-3">
+                <div className="w-5 h-5 rounded-full bg-brand-teal/15 text-brand-teal text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                  2
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-slate-700 leading-normal">Aktifkan Google Auth</h4>
+                  <p className="text-[11px] text-slate-500 leading-relaxed pt-0.5">
+                    Masuk ke menu <strong>Build &gt; Authentication &gt; Sign-in method</strong>, lalu aktifkan penyedia masuk <strong>Google</strong>. Simpan setelan.
+                  </p>
+                </div>
+              </div>
+
+              {/* Step 3 */}
+              <div className="flex gap-3">
+                <div className="w-5 h-5 rounded-full bg-brand-wine/15 text-brand-wine text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                  3
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-slate-700 leading-normal">Otorisasikan Domain Pratinjau</h4>
+                  <p className="text-[11px] text-slate-500 leading-relaxed pt-0.5">
+                    Masuk ke tab <strong>Settings</strong> di Authentication, cari bagian <strong>Authorized domains</strong>, lalu klik "Add domain" untuk menambahkan domain pratinjau di bawah ini agar lolos pemeriksaan keamanan:
+                  </p>
+                  <div className="mt-1.5 p-2 bg-white rounded-lg border border-slate-200 space-y-1 font-mono text-[9px] text-slate-600 select-all">
+                    <span className="block break-all">ais-dev-toulsesnsyciqckr6zcalg-1020233461781.asia-southeast1.run.app</span>
+                    <span className="block break-all">ais-pre-toulsesnsyciqckr6zcalg-1020233461781.asia-southeast1.run.app</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Step 4 */}
+              <div className="flex gap-3">
+                <div className="w-5 h-5 rounded-full bg-brand-teal/15 text-brand-teal text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                  4
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-slate-700 leading-normal">Konfigurasikan Cloud Firestore</h4>
+                  <p className="text-[11px] text-slate-500 leading-relaxed pt-0.5">
+                    Masuk ke menu <strong>Firestore Database</strong>, buat database baru, dan pastikan rules keamanan memperbolehkan baca & tulis bagi user terautentikasi.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-6 border-t border-slate-200/60 mt-4 text-center">
+            <span className="text-[10px] text-slate-400 font-medium">
+              Selesai mengatur? Pastikan menyimpan konfigurasi di menu kiri.
             </span>
           </div>
         </div>
       </motion.div>
+
+      {/* Slide-Up Custom Config Modal / Section */}
+      <AnimatePresence>
+        {showConfigModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+            id="json-config-overlay"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 15 }}
+              className="bg-white rounded-2xl shadow-xl border border-slate-100 max-w-lg w-full overflow-hidden"
+              id="json-config-dialog"
+            >
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                <div className="flex items-center gap-2">
+                  <Settings className="w-5 h-5 text-brand-teal animate-spin-slow" />
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-800 leading-none">Konfigurasi Firebase Sendiri</h3>
+                    <span className="text-[9px] text-slate-400 font-mono">Simpan kredensial privat di browser Anda</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowConfigModal(false)}
+                  className="p-1 hover:bg-slate-200/70 rounded-lg text-slate-400 hover:text-slate-600 transition"
+                  id="close-config-modal"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Tempelkan objek konfigurasi Web App Firebase yang Anda peroleh dari Firebase Console (format JSON lengkap). Data ini disimpan secara lokal di mesin Anda dan tidak dikirim ke server luar manapun.
+                </p>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                    Firebase Config JSON:
+                  </label>
+                  <textarea
+                    value={currentConfigText}
+                    onChange={(e) => setCurrentConfigText(e.target.value)}
+                    rows={8}
+                    className="w-full p-3 font-mono text-[10px] bg-slate-900 text-emerald-400 border border-slate-850 rounded-xl focus:outline-none focus:ring-1 focus:ring-brand-teal leading-relaxed select-all"
+                  />
+                </div>
+
+                {errorMessage && (
+                  <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl text-rose-700 text-xs flex gap-2 items-start font-mono text-[10px]">
+                    <Terminal className="w-4 h-4 shrink-0 mt-0.5 text-rose-500" />
+                    <span>{errorMessage}</span>
+                  </div>
+                )}
+
+                {configSuccessMessage && (
+                  <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl text-emerald-700 text-xs flex gap-2 items-center font-medium">
+                    <Check className="w-4 h-4 shrink-0 text-emerald-500" />
+                    <span>{configSuccessMessage}</span>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-2 justify-between pt-2 border-t border-slate-100">
+                  {hasCustomConfig ? (
+                    <button
+                      onClick={handleResetConfig}
+                      className="text-[11px] text-rose-600 hover:text-rose-700 font-semibold hover:underline cursor-pointer"
+                      id="reset-config-btn"
+                    >
+                      Hapus Custom Config
+                    </button>
+                  ) : (
+                    <div />
+                  )}
+                  
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setShowConfigModal(false)}
+                      className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-500 font-bold rounded-xl text-xs transition cursor-pointer"
+                      id="cancel-save-config"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      onClick={handleSaveConfig}
+                      className="px-5 py-2.5 bg-brand-teal hover:bg-brand-teal/90 text-white font-bold rounded-xl text-xs transition cursor-pointer shadow-sm flex items-center gap-1.5"
+                      id="save-config-btn"
+                    >
+                      <Check className="w-4 h-4" />
+                      Simpan & Muat Ulang
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -13,8 +13,7 @@ import {
   DailyRecord,
   DEFAULT_CONFIG,
   logout,
-  subscribeToSyncStatus,
-  SyncStatus
+  initAuth
 } from "./lib/firebase";
 
 // Components
@@ -24,77 +23,48 @@ import HabitsView from "./components/HabitsView";
 import SettingsView from "./components/SettingsView";
 
 // Icons
-import { Clock, CheckSquare, Sliders, LogOut, ShieldCheck, Sparkles, AlertCircle, Database, RefreshCw } from "lucide-react";
+import { Clock, CheckSquare, Sliders, LogOut, ShieldCheck, Sparkles, AlertCircle, Database } from "lucide-react";
 import { motion } from "motion/react";
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [userConfig, setUserConfig] = useState<UserConfig | null>(null);
   const [daysData, setDaysData] = useState<Record<string, DailyRecord>>({});
-  const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
 
   // App state
   const [activeTab, setActiveTab] = useState<"productive" | "habits" | "settings">("productive");
   const [appLoading, setAppLoading] = useState(true);
   const [networkError, setNetworkError] = useState(false);
 
-  // Sync state tracking subscription
-  useEffect(() => {
-    const unsubscribeSync = subscribeToSyncStatus((status) => {
-      setSyncStatus(status);
-    });
-    return () => unsubscribeSync();
-  }, []);
-
   // Monitor Google Authentication session
   useEffect(() => {
-    // Check if we have a local session active first to allow offline local storage mode
-    const localUserJson = localStorage.getItem("local_user_session");
-    if (localUserJson) {
-      try {
-        const user = JSON.parse(localUserJson);
-        setCurrentUser(user);
-        
-        // Fetch local offline configuration and logged status
-        getOrCreateUserConfig(user.uid).then((config) => {
-          setUserConfig(config);
-        });
-        
-        getUserDays(user.uid).then((days) => {
-          setDaysData(days);
-        });
-        
-        setAppLoading(false);
-        return;
-      } catch (e) {
-        console.error("Failed to parse local user session", e);
-      }
-    }
+    setAppLoading(true);
+    setNetworkError(false);
 
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setAppLoading(true);
-      setNetworkError(false);
-      try {
-        if (user) {
+    const unsubscribe = initAuth(
+      async (user) => {
+        try {
           setCurrentUser(user);
-          // Fetch settings & data from cloud
+          // Fetch settings & data from cloud Firestore
           const config = await getOrCreateUserConfig(user.uid);
           setUserConfig(config);
 
           const days = await getUserDays(user.uid);
           setDaysData(days);
-        } else {
-          setCurrentUser(null);
-          setUserConfig(null);
-          setDaysData({});
+        } catch (err) {
+          console.error("Failed to bootstrap user config or logs:", err);
+          setNetworkError(true);
+        } finally {
+          setAppLoading(false);
         }
-      } catch (err) {
-        console.error("Failed to bootstrap user config or logs:", err);
-        setNetworkError(true);
-      } finally {
+      },
+      () => {
+        setCurrentUser(null);
+        setUserConfig(null);
+        setDaysData({});
         setAppLoading(false);
       }
-    });
+    );
 
     return () => unsubscribe();
   }, []);
@@ -218,28 +188,9 @@ export default function App() {
                 <span className="text-[10px] text-brand-teal font-extrabold tracking-wider uppercase">
                   WORKSPACE INDONESIA
                 </span>
-                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-mono font-bold leading-none border ${
-                  syncStatus === "synced"
-                    ? "bg-emerald-50 border-emerald-200 text-emerald-600 dark:bg-emerald-950/20 dark:border-emerald-900/30 dark:text-emerald-400"
-                    : syncStatus === "syncing"
-                    ? "bg-amber-50 border-amber-200 text-amber-600 dark:bg-amber-950/20 dark:border-amber-900/30 dark:text-amber-400"
-                    : syncStatus === "error"
-                    ? "bg-rose-50 border-rose-200 text-rose-600 dark:bg-rose-950/20 dark:border-rose-900/30 dark:text-rose-400"
-                    : "bg-slate-100 border-slate-200 text-slate-500 dark:bg-slate-900/40 dark:border-slate-800/50 dark:text-slate-400"
-                }`}>
-                  <span className={`w-1 h-1 rounded-full ${
-                    syncStatus === "synced"
-                      ? "bg-emerald-500 animate-pulse"
-                      : syncStatus === "syncing"
-                      ? "bg-amber-500 animate-spin"
-                      : syncStatus === "error"
-                      ? "bg-rose-500"
-                      : "bg-slate-400"
-                  }`} />
-                  {syncStatus === "synced" && "Synced to Drive"}
-                  {syncStatus === "syncing" && "Syncing..."}
-                  {syncStatus === "error" && "Sync Error"}
-                  {syncStatus === "idle" && "Offline Cache"}
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-mono font-bold leading-none border bg-emerald-50 border-emerald-200 text-emerald-600 dark:bg-emerald-950/20 dark:border-emerald-900/30 dark:text-emerald-400">
+                  <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
+                  Firebase Online
                 </span>
               </div>
             </div>
