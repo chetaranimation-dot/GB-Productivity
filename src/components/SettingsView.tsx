@@ -36,6 +36,8 @@ export default function SettingsView({
   onConfigUpdated,
   onLogout
 }: SettingsViewProps) {
+  const isDark = config.theme === "dark";
+
   // Threshold States
   const [vBad, setVBad] = useState<number>(config.thresholdVeryBad);
   const [bad, setBad] = useState<number>(config.thresholdBad);
@@ -43,6 +45,7 @@ export default function SettingsView({
 
   // New Habit Group form
   const [newGroupName, setNewGroupName] = useState("");
+  const [newGroupDesc, setNewGroupDesc] = useState("");
   // New Item states per group (mapped as groupId: text)
   const [newItemTexts, setNewItemTexts] = useState<Record<string, string>>({});
   const [newItemDescriptions, setNewItemDescriptions] = useState<Record<string, string>>({});
@@ -50,6 +53,7 @@ export default function SettingsView({
   // Editing category states
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editingGroupName, setEditingGroupName] = useState("");
+  const [editingGroupDesc, setEditingGroupDesc] = useState("");
 
   // Editing habit item states
   const [editingItemUID, setEditingItemUID] = useState<string | null>(null); // "groupId::itemId"
@@ -120,6 +124,7 @@ export default function SettingsView({
     const newGroup: HabitGroup = {
       id: "g" + Date.now(),
       name: newGroupName.trim(),
+      description: newGroupDesc.trim(),
       items: []
     };
 
@@ -128,6 +133,7 @@ export default function SettingsView({
       await saveUserConfig(userId, { habitsConfig: newHabitsConfig });
       onConfigUpdated({ ...config, habitsConfig: newHabitsConfig });
       setNewGroupName("");
+      setNewGroupDesc("");
       setStatusMsg({ type: "success", text: `Panel habits "${newGroup.name}" berhasil ditambahkan!` });
       setTimeout(() => setStatusMsg(null), 3000);
     } catch (err) {
@@ -251,12 +257,12 @@ export default function SettingsView({
     }
   };
 
-  // Update Category Name
-  const handleUpdateGroupName = async (groupId: string, newName: string) => {
+  // Update Category Name and Description
+  const handleUpdateGroupDetails = async (groupId: string, newName: string, newDesc: string) => {
     if (!newName.trim()) return;
     const updated = config.habitsConfig.map(g => {
       if (g.id === groupId) {
-        return { ...g, name: newName.trim() };
+        return { ...g, name: newName.trim(), description: newDesc.trim() };
       }
       return g;
     });
@@ -265,7 +271,7 @@ export default function SettingsView({
       onConfigUpdated({ ...config, habitsConfig: updated });
       setEditingGroupId(null);
     } catch (err) {
-      console.error("Gagal mengubah nama kategori:", err);
+      console.error("Gagal mengubah rincian kategori:", err);
     }
   };
 
@@ -369,18 +375,18 @@ export default function SettingsView({
       {/* Grid: Indicators Configuration & Theme */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Bounds management card */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
-          <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+        <div className={`p-5 rounded-2xl border shadow-sm space-y-4 ${isDark ? "bg-slate-900 border-slate-800 text-slate-100" : "bg-white border-slate-100 text-slate-800"}`}>
+          <div className={`flex items-center gap-2 pb-3 border-b ${isDark ? "border-slate-800" : "border-slate-100"}`}>
             <Sliders className="w-5 h-5 text-brand-teal" />
             <div>
-              <h3 className="font-bold text-slate-800 text-sm">Batas Indikator Jam Produktif</h3>
+              <h3 className={`font-bold text-sm ${isDark ? "text-slate-100" : "text-slate-800"}`}>Batas Indikator Jam Produktif</h3>
               <p className="text-[10px] text-slate-400">Sesuaikan rentang waktu per hari</p>
             </div>
           </div>
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-600 flex justify-between">
+              <label className={`text-xs font-bold flex justify-between ${isDark ? "text-slate-300" : "text-slate-600"}`}>
                 <span>Batas Sangat Jelek (maksimal jam):</span>
                 <span className="text-brand-wine font-extrabold">{vBad} Jam</span>
               </label>
@@ -391,13 +397,13 @@ export default function SettingsView({
                 step="0.5"
                 value={vBad}
                 onChange={(e) => setVBad(parseFloat(e.target.value))}
-                className="w-full accent-brand-wine h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer"
+                className="w-full accent-brand-wine h-1.5 bg-slate-150 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer"
               />
               <span className="text-[10px] text-slate-400 block">&#8804; {vBad} Jam adalah "Sangat Jelek"</span>
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-600 flex justify-between">
+              <label className={`text-xs font-bold flex justify-between ${isDark ? "text-slate-300" : "text-slate-600"}`}>
                 <span>Batas Jelek (maksimal jam):</span>
                 <span className="text-amber-600 font-extrabold">{bad} Jam</span>
               </label>
@@ -408,13 +414,13 @@ export default function SettingsView({
                 step="0.5"
                 value={bad}
                 onChange={(e) => setBad(parseFloat(e.target.value))}
-                className="w-full accent-amber-500 h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer"
+                className="w-full accent-amber-500 h-1.5 bg-slate-150 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer"
               />
               <span className="text-[10px] text-slate-400 block">{vBad + 0.1}-{bad} Jam adalah "Jelek"</span>
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-600 flex justify-between">
+              <label className={`text-xs font-bold flex justify-between ${isDark ? "text-slate-300" : "text-slate-600"}`}>
                 <span>Batas Cukup (maksimal jam):</span>
                 <span className="text-brand-teal font-extrabold">{fair} Jam</span>
               </label>
@@ -425,7 +431,7 @@ export default function SettingsView({
                 step="0.5"
                 value={fair}
                 onChange={(e) => setFair(parseFloat(e.target.value))}
-                className="w-full accent-brand-teal h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer"
+                className="w-full accent-brand-teal h-1.5 bg-slate-150 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer"
               />
               <span className="text-[10px] text-slate-400 block">{bad + 0.1}-{fair} Jam adalah "Cukup" (&gt; {fair} Jam adalah "Bagus")</span>
             </div>
@@ -433,7 +439,7 @@ export default function SettingsView({
             <button
               onClick={handleSaveThresholds}
               disabled={savingSettings}
-              className="w-full py-2.5 px-4 bg-brand-teal hover:bg-brand-teal/90 text-white font-semibold rounded-xl text-xs flex justify-center items-center gap-2 transition outline-none shadow-sm disabled:opacity-75"
+              className="w-full py-2.5 px-4 bg-brand-teal hover:bg-brand-teal/90 text-white font-semibold rounded-xl text-xs flex justify-center items-center gap-2 transition outline-none shadow-sm disabled:opacity-75 cursor-pointer"
               id="save-bounds-btn"
             >
               <Save className="w-4 h-4" />
@@ -443,12 +449,12 @@ export default function SettingsView({
         </div>
 
         {/* Theme Settings & Account Card */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between gap-6">
+        <div className={`p-5 rounded-2xl border shadow-sm flex flex-col justify-between gap-6 ${isDark ? "bg-slate-900 border-slate-800 text-slate-100" : "bg-white border-slate-100 text-slate-800"}`}>
           <div className="space-y-4">
-            <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+            <div className={`flex items-center gap-2 pb-3 border-b ${isDark ? "border-slate-800" : "border-slate-100"}`}>
               <Sun className="w-5 h-5 text-brand-wine" />
               <div>
-                <h3 className="font-bold text-slate-800 text-sm">Gaya Tampilan Utama</h3>
+                <h3 className={`font-bold text-sm ${isDark ? "text-slate-100" : "text-slate-800"}`}>Gaya Tampilan Utama</h3>
                 <p className="text-[10px] text-slate-400">Atur skema warna mode gelap / terang</p>
               </div>
             </div>
@@ -484,7 +490,7 @@ export default function SettingsView({
           </div>
 
           {/* User Account block */}
-          <div className="bg-slate-50/70 p-4 border border-slate-100 rounded-xl flex items-center justify-between" id="account-card">
+          <div className={`p-4 border rounded-xl flex items-center justify-between ${isDark ? "bg-slate-950/40 border-slate-800/85 text-slate-100" : "bg-slate-50/70 border-slate-100 text-slate-800"}`} id="account-card">
             <div className="flex items-center gap-3">
               {userPhotoUrl ? (
                 <img
@@ -497,14 +503,14 @@ export default function SettingsView({
                 <UserCircle2 className="w-10 h-10 text-slate-400" />
               )}
               <div className="min-w-0">
-                <h4 className="text-xs font-bold text-slate-800 truncate">{userDisplayName}</h4>
-                <p className="text-[10px] text-slate-450 truncate">{userEmail}</p>
+                <h4 className={`text-xs font-bold truncate ${isDark ? "text-slate-100" : "text-slate-800"}`}>{userDisplayName}</h4>
+                <p className="text-[10px] text-slate-400 truncate">{userEmail}</p>
               </div>
             </div>
 
             <button
               onClick={handleSignOut}
-              className="p-2 border border-rose-200 hover:border-rose-300 hover:bg-rose-50 text-rose-600 rounded-lg transition"
+              className={`p-2 border rounded-lg transition cursor-pointer ${isDark ? "border-rose-950 hover:border-rose-800 hover:bg-rose-950/20 text-rose-450" : "border-rose-200 hover:border-rose-300 hover:bg-rose-50 text-rose-600"}`}
               title="Keluar dari Akun"
               id="logout-btn"
             >
@@ -515,31 +521,41 @@ export default function SettingsView({
       </div>
 
       {/* Habit Manager Section */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-5" id="habit-panels-manager">
-        <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+      <div className={`p-5 rounded-2xl border shadow-sm space-y-5 ${isDark ? "bg-slate-900 border-slate-800 text-slate-100" : "bg-white border-slate-100 text-slate-800"}`} id="habit-panels-manager">
+        <div className={`flex items-center gap-2 pb-3 border-b ${isDark ? "border-slate-800" : "border-slate-100"}`}>
           <CheckSquare className="w-5 h-5 text-brand-wine" />
           <div>
-            <h3 className="font-bold text-slate-800 text-sm">Kelola Panel Habits & To-Do List</h3>
+            <h3 className={`font-bold text-sm ${isDark ? "text-slate-100" : "text-slate-800"}`}>Kelola Panel Habits & To-Do List</h3>
             <p className="text-[10px] text-slate-400">Atur kelompok habits, identitas warna, deskripsi, urutan, serta aktif/nonaktifkan di sini.</p>
           </div>
         </div>
 
         {/* Add new Group form */}
-        <form onSubmit={handleAddGroup} className="flex gap-2 max-w-md">
-          <input
-            type="text"
-            placeholder="Tambah nama panel baru (misal: Olahraga)"
-            value={newGroupName}
-            onChange={(e) => setNewGroupName(e.target.value)}
-            className="flex-1 py-1 px-3 border border-slate-200 rounded-xl text-xs focus:border-brand-teal outline-none"
-          />
-          <button
-            type="submit"
-            className="py-1 px-3 bg-brand-teal hover:bg-brand-teal/90 text-white rounded-xl text-xs font-bold flex items-center gap-1 transition"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Tambah</span>
-          </button>
+        <form onSubmit={handleAddGroup} className="space-y-2 max-w-lg bg-slate-50 dark:bg-slate-950/40 p-4 rounded-xl border border-slate-200/60 dark:border-slate-800/80">
+          <div className="text-[10px] font-extrabold text-slate-400 block uppercase tracking-wider mb-2">Tambah Kategori/Panel Baru</div>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input
+              type="text"
+              placeholder="Nama kategori (misal: Olahraga)"
+              value={newGroupName}
+              onChange={(e) => setNewGroupName(e.target.value)}
+              className="flex-1 py-1.5 px-3 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl text-xs focus:border-brand-teal outline-none text-slate-800 dark:text-slate-100"
+            />
+            <input
+              type="text"
+              placeholder="Deskripsi kategori (opsional)"
+              value={newGroupDesc}
+              onChange={(e) => setNewGroupDesc(e.target.value)}
+              className="flex-1 py-1.5 px-3 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl text-xs focus:border-brand-teal outline-none text-slate-800 dark:text-slate-100"
+            />
+            <button
+              type="submit"
+              className="py-1.5 px-3.5 bg-brand-teal hover:bg-brand-teal/90 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition shrink-0 cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Tambah</span>
+            </button>
+          </div>
         </form>
 
         {/* Colors Palette helper map */}
@@ -566,67 +582,96 @@ export default function SettingsView({
                     key={group.id} 
                     className={`border rounded-2xl p-5 transition duration-150 relative ${
                       isGroupEnabled 
-                        ? "bg-slate-50/55 border-slate-200/80" 
-                        : "bg-slate-100/50 border-slate-200 opacity-70"
+                        ? isDark 
+                          ? "bg-slate-950/40 border-slate-800" 
+                          : "bg-slate-50/55 border-slate-200/80" 
+                        : isDark
+                          ? "bg-slate-900/10 border-slate-900 opacity-60"
+                          : "bg-slate-100/50 border-slate-200 opacity-70"
                     }`}
                   >
                     {/* Group Header Area */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200/60 mb-4">
-                      <div className="flex items-center gap-2.5">
+                    <div className={`flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b mb-4 ${isDark ? "border-slate-800" : "border-slate-200/60"}`}>
+                      <div className="flex items-start gap-2.5 flex-1 min-w-0">
                         {/* Enabled / Disabled Category Checkbox */}
                         <input
                           type="checkbox"
                           checked={isGroupEnabled}
                           onChange={() => handleToggleGroupEnabled(group.id, isGroupEnabled)}
-                          className="w-4 h-4 rounded text-brand-teal focus:ring-brand-teal cursor-pointer"
-                          title="Aktifkan / nonaktifkan seluruh kategori ini di Habits Pelacak"
+                          className="w-4 h-4 mt-0.5 rounded text-brand-teal focus:ring-brand-teal cursor-pointer"
+                          title="Aktifkan / nonaktifkan seluruh kategori ini di Habits"
                         />
                         
                         {isEditingGroup ? (
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex flex-col gap-1.5 flex-1 min-w-0">
                             <input
                               type="text"
                               value={editingGroupName}
                               onChange={(e) => setEditingGroupName(e.target.value)}
-                              className="py-0.5 px-2 text-xs font-bold text-slate-800 bg-white border border-slate-300 rounded-lg outline-none focus:border-brand-teal"
+                              placeholder="Nama Kategori..."
+                              className="py-1 px-2.5 text-xs font-bold text-slate-800 dark:text-slate-100 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg outline-none focus:border-brand-teal"
                             />
-                            <button
-                              onClick={() => handleUpdateGroupName(group.id, editingGroupName)}
-                              className="p-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition"
-                            >
-                              <Check className="w-3 h-3" />
-                            </button>
-                            <button
-                              onClick={() => setEditingGroupId(null)}
-                              className="p-1 bg-slate-400 hover:bg-slate-500 text-white rounded-lg transition"
-                            >
-                              <Plus className="w-3 h-3 rotate-45" />
-                            </button>
+                            <input
+                              type="text"
+                              value={editingGroupDesc}
+                              onChange={(e) => setEditingGroupDesc(e.target.value)}
+                              placeholder="Deskripsi Kategori (opsional)..."
+                              className="py-1 px-2.5 text-[10px] text-slate-650 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:border-brand-teal"
+                            />
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <button
+                                onClick={() => handleUpdateGroupDetails(group.id, editingGroupName, editingGroupDesc)}
+                                className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition text-[10px] font-bold flex items-center gap-1"
+                              >
+                                <Check className="w-3 h-3" />
+                                <span>Simpan</span>
+                              </button>
+                              <button
+                                onClick={() => setEditingGroupId(null)}
+                                className="px-2.5 py-1 bg-slate-400 hover:bg-slate-500 text-white rounded-lg transition text-[10px] font-bold flex items-center gap-1"
+                              >
+                                <Plus className="w-3 h-3 rotate-45" />
+                                <span>Batal</span>
+                              </button>
+                            </div>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-extrabold text-slate-800 flex items-center gap-1.5">
-                              <span className={`w-3 h-3 rounded-full bg-${groupColor}-500 inline-block`} />
-                              {group.name} {!isGroupEnabled && <span className="text-[10px] text-slate-400 font-normal italic">(Dinonaktifkan)</span>}
+                          <div className="flex flex-col justify-start min-w-0 flex-1">
+                            <span className={`text-xs font-extrabold flex items-center gap-1.5 ${isDark ? "text-slate-105" : "text-slate-800"}`}>
+                              <span 
+                                className={`w-3 h-3 rounded-full inline-block shrink-0 ${groupColor.startsWith('#') ? '' : `bg-${groupColor}-500`}`}
+                                style={groupColor.startsWith('#') ? { backgroundColor: groupColor } : undefined} 
+                              />
+                              <span className="truncate">{group.name}</span>
+                              {!isGroupEnabled && <span className="text-[10px] text-slate-400 font-normal italic shrink-0">(Dinonaktifkan)</span>}
                             </span>
-                            <button
-                              onClick={() => {
-                                setEditingGroupId(group.id);
-                                setEditingGroupName(group.name);
-                              }}
-                              className="p-1 text-slate-400 hover:text-slate-600 transition"
-                              title="Ubah nama Kategori"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
+                            {group.description && (
+                              <p className="text-[10pt] text-slate-500 dark:text-slate-400 font-medium pl-4.5 mt-0.5 leading-relaxed">
+                                {group.description}
+                              </p>
+                            )}
                           </div>
                         )}
-                      </div>
 
+                        {!isEditingGroup && (
+                          <button
+                            onClick={() => {
+                              setEditingGroupId(group.id);
+                              setEditingGroupName(group.name);
+                              setEditingGroupDesc(group.description || "");
+                            }}
+                            className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition"
+                            title="Ubah rincian kategori"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+ 
                       {/* Color Picker & Delete Button */}
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-1 bg-white p-1 rounded-lg border border-slate-200">
-                          <Palette className="w-3 h-3 text-slate-400 ml-1" />
+                      <div className="flex items-center gap-2.5 shrink-0 self-end md:self-center">
+                        <div className={`flex items-center gap-1 p-1 rounded-lg border ${isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200"}`}>
+                          <Palette className="w-3 h-3 text-slate-400 ml-1 mr-0.5" />
                           {AVAILABLE_COLORS.map((col) => (
                             <button
                               key={col.id}
@@ -638,11 +683,24 @@ export default function SettingsView({
                               title={`Warna ${col.label}`}
                             />
                           ))}
+                          
+                          {/* Custom Color Input via Input Type Color */}
+                          <div 
+                            className="relative w-4 h-4 rounded-full overflow-hidden border border-slate-300 dark:border-slate-600 flex items-center justify-center cursor-pointer hover:scale-115 transition" 
+                            title="Warna kustom (Color Picker)"
+                          >
+                            <input 
+                              type="color" 
+                              value={groupColor.startsWith("#") ? groupColor : "#0d9488"} 
+                              onChange={(e) => handleChangeGroupColor(group.id, e.target.value)}
+                              className="absolute scale-200 cursor-pointer opacity-100 border-none outline-none p-0 w-full h-full"
+                            />
+                          </div>
                         </div>
-
+ 
                         <button
                           onClick={() => handleDeleteGroup(group.id, group.name)}
-                          className="p-1.5 text-slate-350 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                          className="p-1.5 text-slate-350 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-lg transition"
                           title="Hapus Kategori"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -670,8 +728,14 @@ export default function SettingsView({
                           return (
                             <div 
                               key={resolved.id}
-                              className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200/60 shadow-xs transition duration-150 ${
-                                resolved.enabled ? "" : "bg-slate-50/50 opacity-60"
+                              className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl border shadow-xs transition duration-150 ${
+                                isDark 
+                                  ? resolved.enabled 
+                                    ? "bg-slate-900 border-slate-800 text-slate-100" 
+                                    : "bg-slate-950/20 border-slate-900 opacity-60 text-slate-400"
+                                  : resolved.enabled 
+                                    ? "bg-white border-slate-200/60 text-slate-800" 
+                                    : "bg-slate-50/50 border-slate-200 opacity-60 text-slate-450"
                               }`}
                             >
                               {/* Left column: Checkbox and Details OR edit fields */}
@@ -692,27 +756,27 @@ export default function SettingsView({
                                       value={editingItemName}
                                       onChange={(e) => setEditingItemName(e.target.value)}
                                       placeholder="Nama Tugas..."
-                                      className="py-0.5 px-2 text-xs text-slate-850 bg-slate-50 border border-slate-300 rounded-lg outline-none focus:bg-white"
+                                      className="py-0.5 px-2 text-xs text-slate-800 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg outline-none focus:bg-white dark:focus:bg-slate-900"
                                     />
                                     <textarea
                                       value={editingItemDesc}
                                       onChange={(e) => setEditingItemDesc(e.target.value)}
                                       placeholder="Deskripsi..."
                                       rows={1}
-                                      className="py-0.5 px-2 text-[10px] text-slate-505 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:border-brand-teal"
+                                      className="py-0.5 px-2 text-[10px] text-slate-650 dark:text-slate-305 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-brand-teal"
                                     />
                                   </div>
                                 ) : (
                                   <div className="min-w-0">
-                                    <p className={`text-xs font-bold text-slate-800 truncate ${resolved.enabled ? "" : "line-through text-slate-400"}`}>
+                                    <p className={`text-xs font-bold truncate ${resolved.enabled ? (isDark ? "text-slate-100" : "text-slate-800") : "line-through text-slate-450 dark:text-slate-500"}`}>
                                       {resolved.name}
                                     </p>
                                     {resolved.description ? (
-                                      <p className="text-[10px] text-slate-500 leading-normal mt-0.5">
+                                      <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-normal mt-0.5">
                                         {resolved.description}
                                       </p>
                                     ) : (
-                                      <p className="text-[9px] text-slate-400 italic">Tidak ada deskripsi</p>
+                                      <p className="text-[9px] text-slate-400 dark:text-slate-550 italic">Tidak ada deskripsi</p>
                                     )}
                                   </div>
                                 )}
@@ -724,14 +788,14 @@ export default function SettingsView({
                                   <>
                                     <button
                                       onClick={() => handleSaveItemEdit(group.id, resolved.id, editingItemName, editingItemDesc)}
-                                      className="p-1 bg-brand-teal hover:bg-brand-teal/90 text-white rounded-lg transition"
+                                      className="p-1 bg-brand-teal hover:bg-brand-teal/90 text-white rounded-lg transition shrink-0 cursor-pointer"
                                       title="Simpan perubahan"
                                     >
                                       <Save className="w-3 h-3" />
                                     </button>
                                     <button
                                       onClick={() => setEditingItemUID(null)}
-                                      className="p-1 bg-slate-300 hover:bg-slate-400 text-slate-700 rounded-lg transition"
+                                      className="p-1 bg-slate-300 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-400 rounded-lg transition shrink-0 cursor-pointer"
                                       title="Batal"
                                     >
                                       <Plus className="w-3 h-3 rotate-45" />
@@ -743,8 +807,10 @@ export default function SettingsView({
                                     <button
                                       disabled={idx === 0}
                                       onClick={() => handleMoveItem(group.id, idx, "up")}
-                                      className={`p-1.5 rounded-lg border border-slate-100 transition ${
-                                        idx === 0 ? "text-slate-200 bg-slate-50" : "text-slate-500 hover:bg-slate-100"
+                                      className={`p-1.5 rounded-lg border transition shrink-0 cursor-pointer ${
+                                        idx === 0 
+                                          ? "text-slate-300 dark:text-slate-700 border-transparent bg-slate-50/50 dark:bg-slate-900/40" 
+                                          : `text-slate-500 dark:text-slate-400 border-slate-150 dark:border-slate-850 hover:bg-slate-100 dark:hover:bg-slate-800`
                                       }`}
                                       title="Geser Ke Atas"
                                     >
@@ -755,8 +821,10 @@ export default function SettingsView({
                                     <button
                                       disabled={idx === group.items.length - 1}
                                       onClick={() => handleMoveItem(group.id, idx, "down")}
-                                      className={`p-1.5 rounded-lg border border-slate-100 transition ${
-                                        idx === group.items.length - 1 ? "text-slate-200 bg-slate-50" : "text-slate-500 hover:bg-slate-100"
+                                      className={`p-1.5 rounded-lg border transition shrink-0 cursor-pointer ${
+                                        idx === group.items.length - 1 
+                                          ? "text-slate-300 dark:text-slate-700 border-transparent bg-slate-50/50 dark:bg-slate-900/40" 
+                                          : `text-slate-500 dark:text-slate-400 border-slate-150 dark:border-slate-850 hover:bg-slate-100 dark:hover:bg-slate-800`
                                       }`}
                                       title="Geser Ke Bawah"
                                     >
@@ -770,7 +838,7 @@ export default function SettingsView({
                                         setEditingItemName(resolved.name);
                                         setEditingItemDesc(resolved.description);
                                       }}
-                                      className="p-1.5 text-slate-400 hover:text-brand-teal rounded-lg hover:bg-slate-100 transition"
+                                      className="p-1.5 text-slate-400 dark:text-slate-400 hover:text-brand-teal dark:hover:text-brand-teal rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition shrink-0 cursor-pointer"
                                       title="Ubah Nama & Deskripsi"
                                     >
                                       <Edit2 className="w-3 h-3" />
@@ -779,7 +847,7 @@ export default function SettingsView({
                                     {/* Delete */}
                                     <button
                                       onClick={() => handleDeleteTaskItem(group.id, resolved.id)}
-                                      className="p-1.5 text-slate-300 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition"
+                                      className="p-1.5 text-slate-300 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-500 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/20 transition shrink-0 cursor-pointer"
                                       title="Hapus"
                                     >
                                       <Plus className="w-3.5 h-3.5 rotate-45 stroke-[2.5]" />
@@ -794,9 +862,9 @@ export default function SettingsView({
                     </div>
 
                     {/* Form for adding a new To-Do list item with Description! */}
-                    <div className="bg-slate-100/60 p-3.5 rounded-xl border border-slate-200/50 space-y-2 mt-3">
+                    <div className={`p-3.5 rounded-xl border space-y-2 mt-3 ${isDark ? "bg-slate-950/40 border-slate-800" : "bg-slate-100/60 border-slate-200/50"}`}>
                       <div>
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide block mb-1">Tambah To-Do baru</label>
+                        <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide block mb-1">Tambah To-Do baru</label>
                         <input
                           type="text"
                           placeholder="Nama tugas (misal: Push up 20x)..."
@@ -810,7 +878,7 @@ export default function SettingsView({
                               handleAddTaskItem(group.id);
                             }
                           }}
-                          className="w-full py-1.5 px-2.5 border border-slate-200 bg-white rounded-lg text-[11px] outline-none focus:border-brand-teal"
+                          className="w-full py-1.5 px-2.5 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-lg text-[11px] outline-none focus:border-brand-teal"
                         />
                       </div>
                       <div className="flex gap-2 items-center">
@@ -821,11 +889,11 @@ export default function SettingsView({
                           onChange={(e) =>
                             setNewItemDescriptions((prev) => ({ ...prev, [group.id]: e.target.value }))
                           }
-                          className="flex-1 py-1 px-2.5 border border-slate-200 bg-white rounded-lg text-[10px] outline-none focus:border-brand-teal"
+                          className="flex-1 py-1 px-2.5 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-lg text-[10px] outline-none focus:border-brand-teal"
                         />
                         <button
                           onClick={() => handleAddTaskItem(group.id)}
-                          className="py-1 px-3 bg-brand-teal hover:bg-brand-teal/90 text-white rounded-lg text-[11px] font-bold shrink-0 transition"
+                          className="py-1 px-3 bg-brand-teal hover:bg-brand-teal/90 text-white rounded-lg text-[11px] font-bold shrink-0 transition cursor-pointer"
                         >
                           Tambahkan
                         </button>

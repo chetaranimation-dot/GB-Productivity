@@ -24,6 +24,7 @@ export default function HabitsView({
   daysData,
   onDataUpdated
 }: HabitsViewProps) {
+  const isDark = config.theme === "dark";
   const today = new Date();
   const [selectedYear, setSelectedYear] = useState(today.getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(today.getMonth()); // 0-indexed
@@ -155,7 +156,7 @@ export default function HabitsView({
     }
   };
 
-  // Selected date statistics
+  // Selected date statistics (Strictly using currently active configurations)
   const activeDayCompletedCount = useMemo(() => {
     return activeHabitsConfig.reduce((acc, group) => {
       const completedList = group.items.filter(item =>
@@ -182,7 +183,6 @@ export default function HabitsView({
     const tempDate = new Date();
     while (true) {
       const dateStr = formatLocalDate(tempDate);
-      const completes = daysData[dateStr]?.completedHabits || [];
       
       // Filter completes to match only currently active habits
       const hasAnyActiveComplete = activeHabitsConfig.some(g => 
@@ -201,16 +201,27 @@ export default function HabitsView({
 
   const currentStreak = calculateStreak();
 
+  // Strict metric today completed habits counting ONLY active checklist setups
+  const todayDateStr = formatLocalDate(today);
+  const todayCompletedCount = useMemo(() => {
+    return activeHabitsConfig.reduce((acc, group) => {
+      const completedList = group.items.filter(item =>
+        isHabitCompleted(todayDateStr, group.id, item)
+      );
+      return acc + completedList.length;
+    }, 0);
+  }, [todayDateStr, daysData, activeHabitsConfig]);
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6" id="habits-view-container">
       {/* LEFT COLUMN: Calendar (7 Cols) */}
       <div className="lg:col-span-7 space-y-6">
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden" id="habit-calendar-card">
-          <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/20">
+        <div className={`rounded-2xl border shadow-sm overflow-hidden transition ${isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100"}`} id="habit-calendar-card">
+          <div className={`p-5 border-b flex items-center justify-between transition ${isDark ? "bg-slate-950/25 border-slate-805" : "border-slate-100 bg-slate-50/20"}`}>
             <div className="flex items-center gap-2">
               <Calendar className="w-5 h-5 text-brand-teal" />
               <div>
-                <h3 className="font-bold text-slate-800 text-sm">Kalender Habits</h3>
+                <h3 className={`font-bold text-sm ${isDark ? "text-slate-100" : "text-slate-800"}`}>Kalender Habits</h3>
                 <p className="text-[11px] text-slate-400">Ketuk tanggal untuk mencatat pencapaian</p>
               </div>
             </div>
@@ -218,17 +229,17 @@ export default function HabitsView({
             <div className="flex items-center gap-2">
               <button
                 onClick={prevMonth}
-                className="p-1.5 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-lg transition"
+                className={`p-1.5 border rounded-lg transition cursor-pointer ${isDark ? "border-slate-800 text-slate-400 hover:bg-slate-800/40" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}
                 id="cal-prev-month"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              <span className="text-xs font-bold text-slate-700 min-w-[120px] text-center">
+              <span className={`text-xs font-bold min-w-[120px] text-center ${isDark ? "text-slate-100" : "text-slate-700"}`}>
                 {MONTH_NAMES[selectedMonth]} {selectedYear}
               </span>
               <button
                 onClick={nextMonth}
-                className="p-1.5 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-lg transition"
+                className={`p-1.5 border rounded-lg transition cursor-pointer ${isDark ? "border-slate-800 text-slate-400 hover:bg-slate-800/40" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}
                 id="cal-next-month"
               >
                 <ChevronRight className="w-4 h-4" />
@@ -247,7 +258,7 @@ export default function HabitsView({
             {/* Dates Grid */}
             <div className="grid grid-cols-7 gap-2" id="dates-grid">
               {blankDaysArray.map(offsetIdx => (
-                <div key={`blank-${offsetIdx}`} className="aspect-square bg-slate-50/30 rounded-xl" />
+                <div key={`blank-${offsetIdx}`} className={`aspect-square rounded-xl ${isDark ? "bg-slate-950/25" : "bg-slate-50/30"}`} />
               ))}
 
               {daysArray.map((day) => {
@@ -257,7 +268,7 @@ export default function HabitsView({
 
                 const isSelected = activeDateStr === fullDateKey;
 
-                // Group color completions for this specific cell
+                // Group color completions for this specific cell (strictly using active settings)
                 const colorDetails = activeHabitsConfig.map(g => {
                   const completedCount = g.items.filter(it =>
                     isHabitCompleted(fullDateKey, g.id, it)
@@ -276,22 +287,30 @@ export default function HabitsView({
                   <button
                     key={`day-${day}`}
                     onClick={() => setActiveDateStr(fullDateKey)}
-                    className={`min-h-[64px] p-2 rounded-xl border flex flex-col justify-between items-center transition relative group ${
+                    className={`min-h-[64px] p-2 rounded-xl border flex flex-col justify-between items-center transition relative group cursor-pointer ${
                       isSelected
-                        ? "border-brand-wine bg-brand-wine/5 shadow-inner ring-1 ring-brand-wine/25"
-                        : "border-slate-100 bg-white hover:border-brand-teal/50"
+                        ? isDark 
+                          ? "border-rose-500 bg-rose-950/30 text-rose-100 ring-1 ring-rose-500/20 shadow-inner"
+                          : "border-brand-wine bg-brand-wine/5 shadow-inner ring-1 ring-brand-wine/25 text-brand-wine font-extrabold"
+                        : isDark
+                          ? "border-slate-800 bg-slate-950/40 hover:border-brand-teal/40 text-slate-300"
+                          : "border-slate-100 bg-white hover:border-brand-teal/50 text-slate-700"
                     }`}
                   >
                     {/* Top Row inside cell: Day number and total completed count badge */}
-                    <div className="w-full flex items-center justify-between">
-                      <span className={`text-xs font-bold ${
-                        isSelected ? "text-brand-wine font-extrabold" : "text-slate-700"
+                    <div className="w-full flex items-start justify-between gap-1">
+                      <span className={`text-[11px] font-bold ${
+                        isSelected 
+                          ? isDark ? "text-rose-450 font-extrabold" : "text-brand-wine font-extrabold" 
+                          : isDark ? "text-slate-300" : "text-slate-700"
                       }`}>
                         {day}
                       </span>
                       
                       {totalCompleted > 0 && (
-                        <span className="text-[9px] font-extrabold text-slate-755 bg-slate-100 px-1 rounded-md leading-none py-0.5" title="Total tugas selesai hari ini">
+                        <span className={`text-[8px] font-extrabold px-1 rounded-md leading-none py-0.5 shrink-0 select-none ${
+                          isDark ? "text-slate-300 bg-slate-800" : "text-slate-600 bg-slate-100"
+                        }`} title="Total tugas selesai hari ini">
                           {totalCompleted}
                         </span>
                       )}
@@ -301,6 +320,9 @@ export default function HabitsView({
                     {totalCompleted > 0 ? (
                       <div className="flex flex-wrap justify-center gap-0.5 mt-2 w-full">
                         {colorDetails.map(detail => {
+                          const isHex = detail.color.startsWith("#");
+                          const inlineStyle = isHex ? { backgroundColor: detail.color, color: "#fff" } : undefined;
+                          
                           const bgColors: Record<string, string> = {
                             teal: "bg-teal-500 text-teal-50",
                             emerald: "bg-emerald-500 text-emerald-50",
@@ -310,11 +332,12 @@ export default function HabitsView({
                             purple: "bg-purple-500 text-purple-50",
                             slate: "bg-slate-500 text-slate-50",
                           };
-                          const badgeColor = bgColors[detail.color] || "bg-teal-500 text-teal-50";
+                          const badgeColor = isHex ? "" : (bgColors[detail.color] || "bg-teal-500 text-teal-50");
 
                           return (
                             <span 
                               key={detail.id}
+                              style={inlineStyle}
                               className={`text-[8px] font-extrabold h-3.5 w-3.5 rounded-full flex items-center justify-center shrink-0 ${badgeColor}`}
                               title={`${detail.name}: ${detail.count} selesai`}
                             >
@@ -324,7 +347,7 @@ export default function HabitsView({
                         })}
                       </div>
                     ) : (
-                      <span className="w-1.5 h-1.5 rounded-full bg-slate-200 group-hover:bg-slate-300 transition mt-auto mb-1" />
+                      <span className={`w-1.5 h-1.5 rounded-full transition mt-auto mb-1 ${isDark ? "bg-slate-800 group-hover:bg-slate-700" : "bg-slate-200 group-hover:bg-slate-300"}`} />
                     )}
                   </button>
                 );
@@ -335,33 +358,35 @@ export default function HabitsView({
 
         {/* Streak & Metrics overview */}
         <div className="grid grid-cols-2 gap-4" id="habit-highlights">
-          <div className="bg-white border border-slate-100 p-5 rounded-2xl flex items-center gap-4 shadow-sm">
-            <div className="p-3.5 bg-rose-50 text-brand-wine rounded-xl">
-              <Flame className="w-6 h-6 fill-brand-wine/20" />
+          {/* Flame Card: dynamic display sizes to prevent Mobile-Portrait boundary break */}
+          <div className={`p-4 sm:p-5 rounded-2xl border shadow-sm flex flex-col sm:flex-row sm:items-center gap-3 ${isDark ? "bg-slate-900 border-slate-800 text-slate-100" : "bg-white border-slate-100 text-slate-800"}`}>
+            <div className={`p-2.5 sm:p-3.5 rounded-xl shrink-0 w-fit ${isDark ? "bg-rose-950/40 text-rose-400" : "bg-rose-50 text-brand-wine"}`}>
+              <Flame className="w-5 h-5 sm:w-6 sm:h-6 fill-current/20" />
             </div>
-            <div>
-              <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">
+            <div className="min-w-0">
+              <span className="text-[9px] sm:text-[10px] text-slate-400 font-bold block uppercase tracking-wider whitespace-nowrap overflow-hidden text-ellipsis">
                 Rantai Kebiasaan
               </span>
-              <h4 className="text-xl font-extrabold text-slate-800 leading-tight">
+              <h4 className="text-xs sm:text-base md:text-lg font-extrabold leading-tight truncate">
                 {currentStreak} Hari Beruntun
               </h4>
-              <p className="text-[10px] text-slate-400 mt-0.5">Hari aktif berturut-turut</p>
+              <p className="text-[8px] sm:text-[10px] text-slate-400 mt-0.5 truncate">Hari aktif berturut-turut</p>
             </div>
           </div>
 
-          <div className="bg-white border border-slate-100 p-5 rounded-2xl flex items-center gap-4 shadow-sm">
-            <div className="p-3.5 bg-brand-teal/10 text-brand-teal rounded-xl">
-              <Award className="w-6 h-6" />
+          {/* Active completed habits badge (Strict calculation, dynamic sizing) */}
+          <div className={`p-4 sm:p-5 rounded-2xl border shadow-sm flex flex-col sm:flex-row sm:items-center gap-3 ${isDark ? "bg-slate-900 border-slate-800 text-slate-100" : "bg-white border-slate-100 text-slate-800"}`}>
+            <div className={`p-2.5 sm:p-3.5 rounded-xl shrink-0 w-fit ${isDark ? "bg-teal-950/40 text-brand-teal" : "bg-brand-teal/10 text-brand-teal"}`}>
+              <Award className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
-            <div>
-              <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">
+            <div className="min-w-0">
+              <span className="text-[9px] sm:text-[10px] text-slate-400 font-bold block uppercase tracking-wider whitespace-nowrap overflow-hidden text-ellipsis">
                 Hari Ini ({today.getDate()} {MONTH_NAMES[today.getMonth()]})
               </span>
-              <h4 className="text-xl font-extrabold text-slate-800 leading-tight">
-                {daysData[formatLocalDate(today)]?.completedHabits?.length || 0} / {totalHabitsAvailable}
+              <h4 className="text-xs sm:text-base md:text-lg font-extrabold leading-tight truncate">
+                {todayCompletedCount} / {totalHabitsAvailable}
               </h4>
-              <p className="text-[10px] text-slate-400 mt-0.5">Habits aktif terselesaikan</p>
+              <p className="text-[8px] sm:text-[10px] text-slate-400 mt-0.5 truncate">Habits aktif terselesaikan</p>
             </div>
           </div>
         </div>
@@ -369,12 +394,12 @@ export default function HabitsView({
 
       {/* RIGHT COLUMN: Habits checklists (5 Cols) */}
       <div className="lg:col-span-12 xl:col-span-5 space-y-4">
-        <div className="bg-brand-teal/10 border border-brand-teal/20 p-4 rounded-xl flex items-center justify-between">
+        <div className={`p-4 rounded-xl border flex items-center justify-between shadow-xs ${isDark ? "bg-slate-950/20 border-slate-800" : "bg-brand-teal/10 border-brand-teal/20"}`}>
           <div className="text-xs">
-            <span className="text-slate-450 block font-bold uppercase tracking-wider">Mencatat Kebiasaan</span>
+            <span className="text-slate-400 dark:text-slate-500 block font-bold uppercase tracking-wider">Mencatat Kebiasaan</span>
             <span className="text-brand-teal font-extrabold text-sm block mt-0.5">{renderActiveDateFriendly()}</span>
           </div>
-          <span className="text-xs px-2.5 py-1 bg-brand-teal/25 text-brand-teal rounded-full font-bold">
+          <span className="text-xs px-2.5 py-1 bg-brand-teal text-white rounded-full font-bold">
             {activeDayCompletedCount} Selesai
           </span>
         </div>
@@ -382,10 +407,10 @@ export default function HabitsView({
         {/* Habit Groups Loop list */}
         <div className="space-y-3" id="habit-groups-list">
           {activeHabitsConfig.length === 0 ? (
-            <div className="bg-white rounded-2xl p-8 border border-slate-100 text-center">
-              <CheckSquare className="w-12 h-12 text-slate-350 mx-auto mb-3" />
-              <h4 className="text-slate-700 font-bold mb-1">Belum ada panel habits aktif</h4>
-              <p className="text-xs text-slate-450 leading-relaxed">
+            <div className={`rounded-2xl p-8 border text-center ${isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100"}`}>
+              <CheckSquare className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+              <h4 className={`font-bold mb-1 ${isDark ? "text-slate-200" : "text-slate-700"}`}>Belum ada panel habits aktif</h4>
+              <p className="text-xs text-slate-405 leading-relaxed">
                 Silakan tambahkan panel habits baru, isi daftar kebiasaan, dan pastikan status panel serta tugas dicentang **aktif** di tab **Pengaturan**.
               </p>
             </div>
@@ -399,12 +424,19 @@ export default function HabitsView({
               const groupDoneCount = completedInGroup.length;
               const isGroupCompleted = groupItems.length > 0 && groupDoneCount === groupItems.length;
               const groupColor = group.color || "teal";
+              const isHexColor = groupColor.startsWith("#");
 
               return (
                 <div
                   key={group.id}
-                  className={`bg-white rounded-xl border transition-all duration-150 shadow-sm overflow-hidden ${
-                    isExpanded ? "border-brand-teal ring-2 ring-brand-teal/10" : "border-slate-100 hover:border-slate-200"
+                  className={`rounded-xl border transition-all duration-150 shadow-sm overflow-hidden ${
+                    isExpanded 
+                      ? isDark 
+                        ? "border-brand-teal ring-2 ring-brand-teal/20 bg-slate-900/60" 
+                        : "border-brand-teal ring-2 ring-brand-teal/10 bg-white" 
+                      : isDark 
+                        ? "border-slate-800 bg-slate-900 hover:border-slate-755" 
+                        : "border-slate-100 bg-white hover:border-slate-200"
                   }`}
                 >
                   {/* Category Header */}
@@ -413,15 +445,23 @@ export default function HabitsView({
                     className="w-full text-left p-4 flex items-center justify-between outline-none cursor-pointer"
                   >
                     <div>
-                      <h4 className="font-bold text-slate-800 text-sm flex items-center gap-2">
-                        <span className={`w-2.5 h-2.5 rounded-full bg-${groupColor}-500 inline-block`} />
+                      <h4 className={`font-bold text-sm flex items-center gap-2 ${isDark ? "text-slate-100" : "text-slate-800"}`}>
+                        <span 
+                          className={`w-2.5 h-2.5 rounded-full inline-block ${isHexColor ? "" : `bg-${groupColor}-500`}`} 
+                          style={isHexColor ? { backgroundColor: groupColor } : undefined}
+                        />
                         {group.name}
                         {isGroupCompleted && (
-                          <span className="p-0.5 bg-emerald-50 text-emerald-600 rounded-full">
+                          <span className={`p-0.5 rounded-full ${isDark ? "bg-emerald-950/40 text-emerald-400" : "bg-emerald-50 text-emerald-600"}`}>
                             <Check className="w-3 h-3 stroke-[3]" />
                           </span>
                         )}
                       </h4>
+                      {group.description && (
+                        <p className="text-[10px] text-slate-400 mt-0.5">
+                          {group.description}
+                        </p>
+                      )}
                       <p className="text-[11px] text-slate-400 mt-0.5">
                         {groupDoneCount} dari {groupItems.length} selesai
                       </p>
@@ -430,12 +470,12 @@ export default function HabitsView({
                     <div className="flex items-center gap-3">
                       <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
                         isGroupCompleted
-                          ? "bg-emerald-50 text-emerald-600"
-                          : "bg-slate-100 text-slate-500"
+                          ? isDark ? "bg-emerald-950/40 text-emerald-400" : "bg-emerald-50 text-emerald-600"
+                          : isDark ? "bg-slate-800 text-slate-400" : "bg-slate-100 text-slate-500"
                       }`}>
                         {groupItems.length > 0 ? Math.round((groupDoneCount / groupItems.length) * 100) : 0}%
                       </span>
-                      <span className="text-slate-400 text-xs transition-transform transform duration-150" style={{ transform: isExpanded ? "rotate(90deg)" : "none" }}>
+                      <span className="text-slate-450 text-xs transition-transform transform duration-150" style={{ transform: isExpanded ? "rotate(90deg)" : "none" }}>
                         &rarr;
                       </span>
                     </div>
@@ -448,7 +488,7 @@ export default function HabitsView({
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: "auto", opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
-                        className="border-t border-slate-100 bg-slate-50/25 divide-y divide-slate-100"
+                        className={`border-t divide-y ${isDark ? "border-slate-800 bg-slate-950/20 divide-slate-800" : "border-slate-100 bg-slate-50/25 divide-slate-100"}`}
                       >
                         {groupItems.length === 0 ? (
                           <p className="p-4 text-xs text-slate-400 text-center italic">
@@ -462,26 +502,37 @@ export default function HabitsView({
                               <button
                                 key={item.id}
                                 onClick={() => handleToggleHabit(group.id, item)}
-                                className="w-full text-left p-3.5 sm:px-5 flex items-start gap-3 transition-colors hover:bg-white outline-none group/item cursor-pointer"
+                                className={`w-full text-left p-3.5 sm:px-5 flex items-start gap-3 transition-colors outline-none group/item cursor-pointer ${
+                                  isDark ? "hover:bg-slate-850/45" : "hover:bg-white"
+                                }`}
                               >
                                 <div className="shrink-0 mt-0.5">
                                   {isChecked ? (
-                                    <div className={`w-4.5 h-4.5 rounded bg-${groupColor}-500 text-white flex items-center justify-center transition`}>
+                                    <div 
+                                      className={`w-4.5 h-4.5 rounded text-white flex items-center justify-center transition ${isHexColor ? "" : `bg-${groupColor}-500`}`}
+                                      style={isHexColor ? { backgroundColor: groupColor } : undefined}
+                                    >
                                       <Check className="w-3 h-3 stroke-[3]" />
                                     </div>
                                   ) : (
-                                    <div className={`w-4.5 h-4.5 rounded border-2 border-slate-300 group-hover/item:border-${groupColor}-500 transition`} />
+                                    <div className={`w-4.5 h-4.5 rounded border-2 transition ${
+                                      isDark 
+                                        ? `border-slate-700 group-hover/item:border-brand-teal` 
+                                        : `border-slate-350 group-hover/item:border-${groupColor}-500`
+                                    }`} />
                                   )}
                                 </div>
 
                                 <div className="min-w-0">
                                   <span className={`text-xs font-bold block leading-snug ${
-                                    isChecked ? "text-slate-400 line-through decoration-slate-300 opacity-60" : "text-slate-700"
+                                    isChecked 
+                                      ? "text-slate-505 dark:text-slate-500 line-through decoration-slate-300 opacity-60" 
+                                      : isDark ? "text-slate-200" : "text-slate-700"
                                   }`}>
                                     {item.name}
                                   </span>
                                   {item.description ? (
-                                    <span className="text-[10px] text-slate-450 block mt-0.5 leading-relaxed">
+                                    <span className="text-[10px] text-slate-400 block mt-0.5 leading-relaxed">
                                       {item.description}
                                     </span>
                                   ) : null}

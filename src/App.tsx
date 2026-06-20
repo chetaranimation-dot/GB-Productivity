@@ -227,7 +227,7 @@ export default function App() {
               id="tab-habits"
             >
               <CheckSquare className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Habits Pelacak</span>
+              <span className="hidden sm:inline">Habits</span>
             </button>
 
             <button

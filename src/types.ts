@@ -1,9 +1,10 @@
 export interface HabitGroup {
   id: string;
   name: string;
+  description?: string;
   items: any[];
   enabled?: boolean;
-  color?: string;
+  color?: string; // Standard color string (teal, emerald, etc.) or a hex code like #ae44dd
 }
 
 export interface UserConfig {
