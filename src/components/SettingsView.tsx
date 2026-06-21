@@ -397,7 +397,7 @@ export default function SettingsView({
                 step="0.5"
                 value={vBad}
                 onChange={(e) => setVBad(parseFloat(e.target.value))}
-                className="w-full accent-brand-wine h-1.5 bg-slate-150 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                className={`w-full accent-brand-wine h-1.5 rounded-lg appearance-none cursor-pointer ${isDark ? "bg-slate-800" : "bg-slate-200"}`}
               />
               <span className="text-[10px] text-slate-400 block">&#8804; {vBad} Jam adalah "Sangat Jelek"</span>
             </div>
@@ -414,7 +414,7 @@ export default function SettingsView({
                 step="0.5"
                 value={bad}
                 onChange={(e) => setBad(parseFloat(e.target.value))}
-                className="w-full accent-amber-500 h-1.5 bg-slate-150 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                className={`w-full accent-amber-500 h-1.5 rounded-lg appearance-none cursor-pointer ${isDark ? "bg-slate-800" : "bg-slate-200"}`}
               />
               <span className="text-[10px] text-slate-400 block">{vBad + 0.1}-{bad} Jam adalah "Jelek"</span>
             </div>
@@ -431,7 +431,7 @@ export default function SettingsView({
                 step="0.5"
                 value={fair}
                 onChange={(e) => setFair(parseFloat(e.target.value))}
-                className="w-full accent-brand-teal h-1.5 bg-slate-150 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                className={`w-full accent-brand-teal h-1.5 rounded-lg appearance-none cursor-pointer ${isDark ? "bg-slate-800" : "bg-slate-200"}`}
               />
               <span className="text-[10px] text-slate-400 block">{bad + 0.1}-{fair} Jam adalah "Cukup" (&gt; {fair} Jam adalah "Bagus")</span>
             </div>
@@ -531,7 +531,7 @@ export default function SettingsView({
         </div>
 
         {/* Add new Group form */}
-        <form onSubmit={handleAddGroup} className="space-y-2 max-w-lg bg-slate-50 dark:bg-slate-950/40 p-4 rounded-xl border border-slate-200/60 dark:border-slate-800/80">
+        <form onSubmit={handleAddGroup} className={`space-y-2 max-w-lg p-4 rounded-xl border ${isDark ? "bg-slate-950/40 border-slate-800" : "bg-slate-100/60 border-slate-200/60"}`}>
           <div className="text-[10px] font-extrabold text-slate-400 block uppercase tracking-wider mb-2">Tambah Kategori/Panel Baru</div>
           <div className="flex flex-col sm:flex-row gap-2">
             <input
@@ -539,14 +539,22 @@ export default function SettingsView({
               placeholder="Nama kategori (misal: Olahraga)"
               value={newGroupName}
               onChange={(e) => setNewGroupName(e.target.value)}
-              className="flex-1 py-1.5 px-3 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl text-xs focus:border-brand-teal outline-none text-slate-800 dark:text-slate-100"
+              className={`flex-1 py-1.5 px-3 border rounded-xl text-xs focus:border-brand-teal outline-none ${
+                isDark
+                  ? "bg-slate-850 border-slate-700 text-slate-100"
+                  : "bg-white border-slate-200 text-slate-800"
+              }`}
             />
             <input
               type="text"
               placeholder="Deskripsi kategori (opsional)"
               value={newGroupDesc}
               onChange={(e) => setNewGroupDesc(e.target.value)}
-              className="flex-1 py-1.5 px-3 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl text-xs focus:border-brand-teal outline-none text-slate-800 dark:text-slate-100"
+              className={`flex-1 py-1.5 px-3 border rounded-xl text-xs focus:border-brand-teal outline-none ${
+                isDark
+                  ? "bg-slate-850 border-slate-700 text-slate-100"
+                  : "bg-white border-slate-200 text-slate-800"
+              }`}
             />
             <button
               type="submit"
@@ -609,14 +617,22 @@ export default function SettingsView({
                               value={editingGroupName}
                               onChange={(e) => setEditingGroupName(e.target.value)}
                               placeholder="Nama Kategori..."
-                              className="py-1 px-2.5 text-xs font-bold text-slate-800 dark:text-slate-100 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg outline-none focus:border-brand-teal"
+                              className={`py-1 px-2.5 text-xs font-bold border rounded-lg outline-none focus:border-brand-teal ${
+                                isDark
+                                  ? "text-slate-100 bg-slate-800 border-slate-700"
+                                  : "text-slate-800 bg-white border-slate-300"
+                              }`}
                             />
                             <input
                               type="text"
                               value={editingGroupDesc}
                               onChange={(e) => setEditingGroupDesc(e.target.value)}
                               placeholder="Deskripsi Kategori (opsional)..."
-                              className="py-1 px-2.5 text-[10px] text-slate-650 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:border-brand-teal"
+                              className={`py-1 px-2.5 text-[10px] border rounded-lg outline-none focus:border-brand-teal ${
+                                isDark
+                                  ? "text-slate-300 bg-slate-800 border-slate-700"
+                                  : "text-slate-650 bg-white border-slate-200"
+                              }`}
                             />
                             <div className="flex items-center gap-1.5 mt-1">
                               <button
@@ -756,14 +772,22 @@ export default function SettingsView({
                                       value={editingItemName}
                                       onChange={(e) => setEditingItemName(e.target.value)}
                                       placeholder="Nama Tugas..."
-                                      className="py-0.5 px-2 text-xs text-slate-800 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg outline-none focus:bg-white dark:focus:bg-slate-900"
+                                      className={`py-0.5 px-2 text-xs border rounded-lg outline-none focus:bg-white ${
+                                        isDark
+                                          ? "text-slate-100 bg-slate-800 border-slate-700 focus:bg-slate-900"
+                                          : "text-slate-800 bg-slate-50 border-slate-300"
+                                      }`}
                                     />
                                     <textarea
                                       value={editingItemDesc}
                                       onChange={(e) => setEditingItemDesc(e.target.value)}
                                       placeholder="Deskripsi..."
                                       rows={1}
-                                      className="py-0.5 px-2 text-[10px] text-slate-650 dark:text-slate-305 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-brand-teal"
+                                      className={`py-0.5 px-2 text-[10px] border rounded-lg outline-none focus:border-brand-teal focus:bg-white ${
+                                        isDark
+                                          ? "text-slate-300 bg-slate-800 border-slate-700 focus:bg-slate-900"
+                                          : "text-slate-650 bg-slate-50 border-slate-200"
+                                      }`}
                                     />
                                   </div>
                                 ) : (
@@ -864,7 +888,7 @@ export default function SettingsView({
                     {/* Form for adding a new To-Do list item with Description! */}
                     <div className={`p-3.5 rounded-xl border space-y-2 mt-3 ${isDark ? "bg-slate-950/40 border-slate-800" : "bg-slate-100/60 border-slate-200/50"}`}>
                       <div>
-                        <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide block mb-1">Tambah To-Do baru</label>
+                        <label className={`text-[10px] font-bold uppercase tracking-wide block mb-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>Tambah To-Do baru</label>
                         <input
                           type="text"
                           placeholder="Nama tugas (misal: Push up 20x)..."
@@ -878,7 +902,11 @@ export default function SettingsView({
                               handleAddTaskItem(group.id);
                             }
                           }}
-                          className="w-full py-1.5 px-2.5 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-lg text-[11px] outline-none focus:border-brand-teal"
+                          className={`w-full py-1.5 px-2.5 border rounded-lg text-[11px] outline-none focus:border-brand-teal ${
+                            isDark
+                              ? "border-slate-700 bg-slate-800 text-slate-100"
+                              : "border-slate-200 bg-white text-slate-800"
+                          }`}
                         />
                       </div>
                       <div className="flex gap-2 items-center">
@@ -889,7 +917,11 @@ export default function SettingsView({
                           onChange={(e) =>
                             setNewItemDescriptions((prev) => ({ ...prev, [group.id]: e.target.value }))
                           }
-                          className="flex-1 py-1 px-2.5 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-lg text-[10px] outline-none focus:border-brand-teal"
+                          className={`flex-1 py-1 px-2.5 border rounded-lg text-[10px] outline-none focus:border-brand-teal ${
+                            isDark
+                              ? "border-slate-700 bg-slate-800 text-slate-100"
+                              : "border-slate-200 bg-white text-slate-800"
+                          }`}
                         />
                         <button
                           onClick={() => handleAddTaskItem(group.id)}
