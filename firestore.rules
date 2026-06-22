@@ -48,6 +48,11 @@ service cloud.firestore {
       allow read, delete: if isOwner(userId);
       allow create, update: if isOwner(userId) && isValidUserConfig(request.resource.data);
 
+      match /config/{configId} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidUserConfig(request.resource.data);
+      }
+
       match /days/{dateId} {
         allow read, delete: if isOwner(userId);
         allow create, update: if isOwner(userId) && isValidUserDay(request.resource.data) && isValidDateId(dateId);
