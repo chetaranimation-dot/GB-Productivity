@@ -21,6 +21,7 @@ import {
   getDocs,
   writeBatch
 } from "firebase/firestore";
+import defaultFirebaseConfig from "../../firebase-applet-config.json";
 
 export const PLACEHOLDER_CONFIG = {
   apiKey: "AIzaSyPlaceholderKey-ConfigureInYourGitHubOrSettings",
@@ -57,7 +58,7 @@ export function getFirebaseConfig() {
   } catch (e) {
     console.warn("Failed to parse custom firebase config from localStorage", e);
   }
-  return PLACEHOLDER_CONFIG;
+  return defaultFirebaseConfig;
 }
 
 export function isUsingPlaceholderConfig(): boolean {
