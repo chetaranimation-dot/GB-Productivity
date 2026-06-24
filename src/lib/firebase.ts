@@ -22,6 +22,16 @@ import {
   writeBatch
 } from "firebase/firestore";
 
+export const PLACEHOLDER_CONFIG = {
+  apiKey: "AIzaSyPlaceholderKey-ConfigureInYourGitHubOrSettings",
+  authDomain: "your-app-id.firebaseapp.com",
+  projectId: "your-app-id",
+  storageBucket: "your-app-id.appspot.com",
+  messagingSenderId: "1234567890",
+  appId: "1:1234567890:web:1234567890",
+  firestoreDatabaseId: undefined
+};
+
 // Helper function to load Firebase Configuration (custom from localStorage or default)
 export function getFirebaseConfig() {
   // SECURE CONFIG FOR GITHUB: Prioritize import.meta.env
@@ -47,7 +57,12 @@ export function getFirebaseConfig() {
   } catch (e) {
     console.warn("Failed to parse custom firebase config from localStorage", e);
   }
-  return {};
+  return PLACEHOLDER_CONFIG;
+}
+
+export function isUsingPlaceholderConfig(): boolean {
+  const config = getFirebaseConfig();
+  return config.apiKey === PLACEHOLDER_CONFIG.apiKey;
 }
 
 const activeConfig = getFirebaseConfig();

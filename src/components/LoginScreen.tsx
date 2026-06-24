@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from "react";
-import { googleSignIn, getFirebaseConfig } from "../lib/firebase";
+import { googleSignIn, getFirebaseConfig, isUsingPlaceholderConfig } from "../lib/firebase";
 import { 
   ShieldCheck, 
   Sparkles, 
@@ -36,6 +36,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   // Custom configuration states
   const [currentConfigText, setCurrentConfigText] = useState("");
   const [hasCustomConfig, setHasCustomConfig] = useState(false);
+  const [usingPlaceholder, setUsingPlaceholder] = useState(false);
   const [configSuccessMessage, setConfigSuccessMessage] = useState<string | null>(null);
 
   // Load current active config on mount
@@ -43,6 +44,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     const config = getFirebaseConfig();
     setCurrentConfigText(JSON.stringify(config, null, 2));
     setHasCustomConfig(!!localStorage.getItem("custom_firebase_config"));
+    setUsingPlaceholder(isUsingPlaceholderConfig());
   }, []);
 
   const handleGoogleSignIn = async () => {
@@ -146,6 +148,19 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
             <p className="text-xs text-slate-500 mb-6 leading-relaxed">
               Selamat datang kembali! Masuk aman menggunakan Google Sign-In untuk mengelola seluruh pencatatan jam produktif dan kebiasaan harian Anda.
             </p>
+
+            {/* Placeholder config warning */}
+            {usingPlaceholder && !errorMessage && (
+              <div className="mb-6 p-4 bg-amber-50 border border-amber-100 rounded-2xl flex gap-3 text-amber-800 text-xs items-start leading-normal">
+                <Info className="w-4 h-4 shrink-0 text-amber-500 mt-0.5" />
+                <div className="flex-1">
+                  <span className="font-bold block mb-1 text-amber-900">Setelan Firebase Kosong (Mode Aman GitHub)</span>
+                  <span className="block leading-relaxed">
+                    Kredensial Firebase belum terisi atau terhapus untuk keamanan di repositori Git. Silakan klik ikon <strong className="text-brand-teal font-extrabold">Setelan (Gigi)</strong> di kanan atas untuk menempelkan konfigurasi Firebase Anda agar aplikasi dapat berjalan normal.
+                  </span>
+                </div>
+              </div>
+            )}
 
             {/* Error alerts */}
             {errorMessage && (
