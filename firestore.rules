@@ -11,24 +11,18 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Helper to check ownership
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
     function isValidUserConfig(data) {
-      return data.theme is string &&
-             data.theme.size() <= 10 &&
-             data.thresholdVeryBad is number &&
-             data.thresholdVeryBad >= 0 &&
-             data.thresholdVeryBad <= 24 &&
-             data.thresholdBad is number &&
-             data.thresholdBad >= 0 &&
-             data.thresholdBad <= 24 &&
-             data.thresholdFair is number &&
-             data.thresholdFair >= 0 &&
-             data.thresholdFair <= 24 &&
-             data.habitsConfig is list &&
-             data.habitsConfig.size() <= 50;
+      return (data.theme == null || (data.theme is string && data.theme.size() <= 10)) &&
+             (data.thresholdVeryBad == null || (data.thresholdVeryBad is number && data.thresholdVeryBad >= 0 && data.thresholdVeryBad <= 24)) &&
+             (data.thresholdBad == null || (data.thresholdBad is number && data.thresholdBad >= 0 && data.thresholdBad <= 24)) &&
+             (data.thresholdFair == null || (data.thresholdFair is number && data.thresholdFair >= 0 && data.thresholdFair <= 24)) &&
+             (data.habitsConfig == null || (data.habitsConfig is list && data.habitsConfig.size() <= 50)) &&
+             (data.limitBulanan == null || (data.limitBulanan is number && data.limitBulanan >= 0));
     }
 
     function isValidUserDay(data) {
@@ -61,6 +55,21 @@ service cloud.firestore {
       match /summary/{summaryId} {
         allow read, delete: if isOwner(userId);
         allow create, update: if isOwner(userId);
+      }
+
+      // Buku Kas Data Subcollection
+      match /mmdata/{dateId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // Buku Kas Data Subcollection (legacy)
+      match /data/{dataId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // Self-Evaluation Web
+      match /evaluations/{docId} {
+        allow read, write: if isOwner(userId);
       }
     }
   }
